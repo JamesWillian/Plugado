@@ -1,6 +1,9 @@
 package app.jammes.plugado.di
 
 import android.media.AudioManager
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.room.Room
 import app.jammes.domain.tracker.SegmentTracker
 import app.jammes.plugado.audio.AudioModeSource
 import app.jammes.plugado.audio.AudioStateAggregator
@@ -8,8 +11,12 @@ import app.jammes.plugado.audio.OutputDeviceSource
 import app.jammes.plugado.audio.PlaybackSource
 import app.jammes.plugado.audio.SystemAudioStateReader
 import app.jammes.plugado.audio.VolumeSource
+import app.jammes.plugado.data.ListeningRepository
+import app.jammes.plugado.data.db.AppDatabase
+import app.jammes.plugado.data.prefs.MonitorSettings
 import app.jammes.plugado.monitor.CommandSink
 import app.jammes.plugado.monitor.ListeningMonitor
+import app.jammes.plugado.monitor.MonitorSwitch
 import kotlinx.coroutines.flow.merge
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -30,11 +37,20 @@ val appModule = module {
         AudioStateAggregator(
             triggers = sources.map { it.triggers }.merge(),
             reader = SystemAudioStateReader(am),
+            notHeadphones = get<ListeningRepository>().notHeadphones,
         )
     }
 
-    // Por enquanto os comandos só aparecem no log de debug. Na fase 5 o Room entra aqui.
-    single<CommandSink> { CommandSink { } }
+    single { Room.databaseBuilder(androidContext(), AppDatabase::class.java, "plugado.db").build() }
+    single { ListeningRepository(get()) }
+    single<CommandSink> { get<ListeningRepository>() }
+
+    single {
+        MonitorSettings(
+            PreferenceDataStoreFactory.create { androidContext().preferencesDataStoreFile("monitor") },
+        )
+    }
+    single { MonitorSwitch(androidContext(), get()) }
 
     // Factory: cada vez que o serviço liga, um tracker novo, sem estado da vez anterior.
     factory {

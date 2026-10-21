@@ -9,13 +9,24 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import app.jammes.plugado.data.ListeningRepository
+import app.jammes.plugado.data.prefs.MonitorSettings
+import app.jammes.plugado.util.ticker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.get
+import java.time.LocalDate
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Foreground service "burro": fica em primeiro plano e hospeda o [ListeningMonitor].
@@ -29,13 +40,26 @@ class MonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP || !goForeground()) {
+        if (intent?.action == ACTION_STOP) {
+            // "Pausar" na notificação: lembra que está desligado, pra não voltar sozinho no boot.
+            scope.launch {
+                get<MonitorSettings>().setEnabled(false)
+                stopSelf()
+            }
+            return START_NOT_STICKY
+        }
+        if (!goForeground()) {
             stopSelf()
             return START_NOT_STICKY
         }
         if (monitoring == null) {
+            val repository: ListeningRepository = get()
             val monitor: ListeningMonitor = get()
-            monitoring = scope.launch { monitor.run() }
+            monitoring = scope.launch {
+                repository.recoverOrphans() // o processo pode ter morrido no meio de uma escuta
+                monitor.run()
+            }
+            scope.launch { showToday(repository) }
         }
         return START_STICKY
     }
@@ -43,6 +67,23 @@ class MonitorService : Service() {
     override fun onDestroy() {
         scope.cancel() // o run() fecha a sessão aberta antes de terminar
         super.onDestroy()
+    }
+
+    /** Mantém o "hoje: X min" da notificação em dia. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun showToday(repository: ListeningRepository) {
+        // Relê a data a cada minuto (com o aparelho acordado), pra virar o dia na meia-noite.
+        ticker(1.minutes).onStart { emit(Unit) }
+            .map { LocalDate.now() }
+            .distinctUntilChanged()
+            .flatMapLatest { repository.listenedOn(it) }
+            .map { it.toMinutes() }
+            .distinctUntilChanged()
+            .collect { minutes ->
+                // Na main, a mesma thread do onDestroy: se o serviço já parou, o scope cancelado
+                // impede a atualização, e a notificação não volta "presa" depois que ele some.
+                withContext(Dispatchers.Main) { MonitorNotification.update(this@MonitorService, minutes) }
+            }
     }
 
     private fun goForeground(): Boolean = try {

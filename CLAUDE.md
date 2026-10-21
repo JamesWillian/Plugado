@@ -14,6 +14,9 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 - Ele é dev Android experiente (Kotlin, Compose, Flow, Room, Koin, MVVM/Clean). Pode ir direto ao ponto em Android.
 - Testes automatizados são novidade pra ele. Ao escrever testes, explique a estrutura (monta a situação → executa → confere) e, quando fizer sentido, deixe um caso pra ele escrever.
 - Quando ele pedir explicação "em linguagem fácil", use analogias e frases curtas.
+- Nas respostas, prefira linguagem comum. Termo de programação pode aparecer, mas explicado de forma clara; jargão de Android ou de áudio, só com explicação (pedido de 20/out).
+- Ele não tem como fazer testes de campo elaborados (outros aparelhos, carro, caixa de som). Peça no máximo testes simples, de poucos minutos, e diga quando são opcionais.
+- Antes de mudar algo que aparece no aparelho dele (ícone novo, nome do app, tela inicial, notificação nova), pergunte explicitamente. Não deixe esse tipo de decisão escondida no meio de um plano. (Em 20/out, o ícone "Plugado log" foi criado sem essa pergunta; a pedido dele, o log passou pra aba Today.)
 - Processo combinado: validar o comportamento no aparelho real antes de abstrair (por isso o spike veio antes da arquitetura).
 
 ## Estado atual (20/out/2026)
@@ -23,9 +26,9 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 - [x] Módulo `:domain` (Kotlin/JVM puro) criado. Packages: `app.jammes.domain.model` e `app.jammes.domain.tracker`. O app usa `app.jammes.plugado`.
 - [x] Modelos (um arquivo por classe em `model/`), `SegmentTracker.kt` (com `TrackerConfig` e `TrackerCommand`) e `SegmentTrackerTest.kt`: 11 testes passando no projeto real (`./gradlew :domain:test`, 20/out).
 - [x] `audio/` (fase 2): as quatro fontes, as regras puras (`SnapshotRules.kt`), o leitor do `AudioManager` e o `AudioStateAggregator`, com 15 testes na JVM (`./gradlew :app:testDebugUnitTest`). As fontes e o leitor ainda não rodaram num aparelho; isso vem com o serviço.
-- [x] `monitor/` (fase 3): `ListeningMonitor` (com 4 testes), `MonitorService` (FGS `specialUse`), `MonitorNotification`, Koin (`di/`) e a tela de log só no debug (ícone "Plugado log"). No emulador (API 37): o FGS sobe como `specialUse` mesmo com a notificação negada, o processo fica em `FOREGROUND_SERVICE`, uma mudança de volume com o app em background vira snapshot ~0,45 s depois, e desligar funciona. Falta validar no aparelho real, com música e fone.
-- [ ] Room (fase 5, depois dos testes de campo).
-- [ ] Testes de chamada, WhatsApp, notificação e vídeo (dependem do serviço rodando em background).
+- [x] `monitor/` (fase 3): `ListeningMonitor` (com 4 testes), `MonitorService` (FGS `specialUse`), `MonitorNotification`, Koin (`di/`) e a tela de log só no debug (hoje na aba Today do BottomNavigation). No emulador (API 37): o FGS sobe como `specialUse` mesmo com a notificação negada, o processo fica em `FOREGROUND_SERVICE`, uma mudança de volume com o app em background vira snapshot ~0,45 s depois, e desligar funciona. Validado pelo James no aparelho real, com música no fone e a tela desligada.
+- [x] Testes de campo (fase 4): **pulados por decisão do James** (20/out). Ele não tem como fazer a maioria. O caso principal (música no fone BT) está validado; o resto virou a lista "Ainda não testado", pra observar no uso do dia a dia e corrigir pelo log quando algum número parecer errado.
+- [x] `data/` (fase 5): Room (`segments`, `devices`), `ListeningRepository` (é o `CommandSink`), recuperação dos trechos órfãos (regra no domínio, `OrphanRecovery.kt`), DataStore (`MonitorSettings`), `MonitorSwitch`, `BootReceiver` e a notificação "Hoje: X min no fone". Testes: 3 no domínio e 8 instrumentados no emulador (`./gradlew :app:connectedDebugAndroidTest`). No emulador (API 37): a notificação mostra "Hoje: 0 min no fone", reinstalar o app com o monitoramento ligado faz ele voltar sozinho (`MY_PACKAGE_REPLACED`), e o "Pausar" desliga e continua desligado depois de reinstalar. Falta ver o total subir no aparelho real, ouvindo música.
 - [ ] UI, onboarding e publicação.
 
 ## Próximos passos
@@ -33,29 +36,28 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 1. Exercícios reservados pro James (não escreva por ele, a menos que ele peça):
    - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
    - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
-2. Validar a fase 3 no aparelho real (é o James quem testa): ligar pelo "Plugado log", tocar música com a tela desligada, pausar, mudar o volume e tirar o fone. O log precisa mostrar cada coisa no horário certo.
-3. Testes de campo em background (lista "Ainda não testado"). Cada achado vira regra + teste no agregador.
-4. `data/`: Room (`segments` e `devices`), `ListeningRepository` como `CommandSink` (com a folga do heartbeat), DataStore pra lembrar se o monitoramento está ligado, fechamento dos trechos órfãos, `BootReceiver` e a notificação "hoje: X min". A tabela `devices` alimenta o `notHeadphones` do agregador.
-5. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
+2. Investigar o vídeo do Facebook com som, que não contou (veja "Achados do uso"). Precisa de dados crus no log de debug: `isMusicActive`, `mode`, saídas e players ativos em cada gatilho, mesmo quando o snapshot não muda.
+3. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
 
 ## Arquitetura
 
 ```
 :domain   Kotlin puro, nenhum import android.*
   model/     AudioSnapshot, AudioKind, Output, OutputType, Volume, Segment   [pronto]
-  tracker/   SegmentTracker, TrackerConfig, TrackerCommand                   [pronto]
+  tracker/   SegmentTracker, TrackerConfig, TrackerCommand, OrphanRecovery   [pronto]
   stats/     DailyStats, média de volume                                     [planejado]
 :app
   audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource,
              SnapshotRules, AudioStateReader, AudioStateAggregator              [pronto]
   monitor/   ListeningMonitor, CommandSink, MonitorListener, MonitorService,
-             MonitorNotification                                             [pronto]
-             BootReceiver                                                    [planejado]
-  data/      db/ (entities, DAOs, AppDatabase), prefs/ (DataStore), ListeningRepository
+             MonitorNotification, MonitorSwitch, BootReceiver                [pronto]
+  data/      db/ (SegmentEntity, DeviceEntity, DAOs, Converters, AppDatabase),
+             prefs/MonitorSettings, ListeningRepository                       [pronto]
   ui/        today/, history/, devices/, onboarding/
   di/        AppModule; variantModule existe em src/debug e em src/release   [pronto]
   util/      ticker
-  debuglog/  (só em src/debug) DebugLog, DebugLogActivity                    [pronto]
+  debuglog/  (src/debug) DebugLog, DebugLogScreen; (src/release) DebugLogScreen,
+             um aviso no lugar do log                                       [provisório]
 ```
 
 Fluxo: fontes → agregador (`AudioSnapshot`) → `SegmentTracker` (`TrackerCommand`) → serviço grava no Room → notificação e UI leem do Room via `Flow`.
@@ -107,13 +109,18 @@ As fontes (`TriggerSource`, um `callbackFlow` cada) emitem só **gatilhos** (`Un
 - Enquanto o último snapshot for `isListening`, polling a cada 5 s. Isso mantém o agregador independente do tracker: durante a pausa não precisa, porque a volta do play sempre chega com callback de playback. As expirações de pausa continuam vindo dos ticks do serviço.
 - A lista de "não é fone" entra como `Flow<Set<Output>>` (vazia até existir o Room) e, quando muda, relê na hora.
 
-### Banco (planejado)
+### Banco (implementado na fase 5)
 
-- `segments`: `id, sessionId, day, startedAt, endedAt?, lastSeenAt, kind, outputType, outputName, volumeIndex, volumeMax, volumeDb`, com índices em `day` e `sessionId` e TypeConverters pra `Instant` e `LocalDate`.
-- `devices`: `name, type, isHeadphone`, pro usuário marcar caixa de som ou som do carro como "não conta".
-- Comandos → SQL: `Open` = insert (com `lastSeenAt = startedAt`), `Close` = update de `endedAt`, `Heartbeat` = update de `lastSeenAt`, `DiscardSession` = delete por `sessionId`.
-- Ao iniciar o serviço, trechos com `endedAt` nulo (o processo morreu) fecham em `lastSeenAt`. Aplique também a regra dos 10 s por sessão.
-- Totais por dia e volume médio saem de uma query com `GROUP BY day`, exposta como `Flow`.
+- Room 2.8.5 com KSP 2.3.12 (funciona com o AGP 9 e o Kotlin 2.2.10). O esquema de cada versão fica em `app/schemas/` e vai pro git, pras migrações futuras.
+- `segments`: `id, sessionId, day, startedAt, endedAt?, lastSeenAt, kind, outputType, outputName, volumeIndex, volumeMax, volumeDb?`, com índices em `day` e `sessionId`. `Instant` vira milissegundos (dá pra subtrair no SQL) e `LocalDate` vira texto ISO. Enums viram texto (suporte nativo do Room).
+- `volumeDb` é nullable, decidido em 20/out: o SQLite não guarda `NaN` (vira NULL), então o `NaN` do leitor vira `null` no `toEntity()`.
+- `devices` (chave `type` + `name`, `isHeadphone`): toda saída entra como fone no primeiro `Open`. Marcar como "não é fone" tira ela do total, **inclusive no passado**, e alimenta o `notHeadphones` do agregador.
+- Comandos → SQL: `Open` = insert (com `lastSeenAt = startedAt`) + insert-or-ignore em `devices`, `Close` = update de `endedAt`, `Heartbeat` = update de `lastSeenAt`, `DiscardSession` = delete por `sessionId`.
+- Heartbeat gravado no máximo a cada 30 s (o tracker manda um a cada tick de 5 s). Decidido em 20/out.
+- Ao iniciar, o serviço roda o `recoverOrphans()` antes do monitor: cada trecho aberto vira `OrphanSegment` (direto da query) e o `recover()` do domínio decide entre fechar no `lastSeenAt` ou descartar a sessão (< 10 s, contando desde o primeiro trecho dela).
+- Total do dia: `SUM(COALESCE(endedAt, lastSeenAt) - startedAt)`, exposto como `Flow`. O volume médio fica pra fase de UI, calculado no `:domain/stats` (a média energética precisa de log/pow, que o SQLite do Android não garante).
+- O liga/desliga fica no DataStore (`MonitorSettings`). O `MonitorSwitch` grava e liga/desliga o serviço. O "Pausar" da notificação também grava "desligado". O `BootReceiver` (não exportado: o sistema entrega mesmo assim) religa no `BOOT_COMPLETED` e no `MY_PACKAGE_REPLACED` se estiver ligado.
+- A notificação mostra "Hoje: X min no fone". Ela relê a data a cada minuto, pra virar o dia na meia-noite. Sem a permissão de notificação, ela não é atualizada.
 
 ### Serviço e Android (fase 3 implementada)
 
@@ -122,7 +129,7 @@ Como ficou:
 - `CommandSink` é quem grava (hoje é um no-op; na fase 5 é o Room). `MonitorListener` é quem só acompanha (o `DebugLog` no debug, `MonitorListener.None` no release). O Koin escolhe pelo `variantModule`.
 - O `MonitorService` só hospeda o `run()` num `CoroutineScope` próprio. `onDestroy` cancela o scope, e é isso que fecha a sessão. `START_STICKY`. Se o `startForeground` for recusado (`ForegroundServiceStartNotAllowedException`), o serviço se desliga em vez de quebrar.
 - A ação "Pausar" da notificação manda um `ACTION_STOP` pro próprio serviço. A notificação usa `FOREGROUND_SERVICE_IMMEDIATE`.
-- A tela "Plugado log" é uma segunda activity de launcher, só no debug, com `taskAffinity` próprio. O log fica em memória e vai também pro logcat (tag `Plugado`).
+- A tela de log (`DebugLogScreen`) fica na aba **Today** do BottomNavigation do `PlugadoApp`, decidido pelo James em 20/out (antes ela tinha um ícone próprio, "Plugado log", que foi removido). Ela continua num arquivo separado: quando a tela de hoje existir, troque a chamada no `PlugadoApp` e apague as duas `DebugLogScreen` (a do debug e o aviso do release). O log só existe no debug; no release, a aba mostra um aviso. Na prévia do Android Studio ela mostra só um texto, porque o Koin não roda lá. O log fica em memória e vai também pro logcat (tag `Plugado`).
 
 Regras que continuam valendo:
 - Foreground service do tipo `specialUse`. Não use `mediaPlayback` (o app não toca mídia) nem `dataSync` (tem limite de tempo). Declare o `android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE` no manifest e use `ServiceCompat.startForeground`. O tipo `specialUse` só existe a partir da API 34; nas APIs 31–33 o tipo não é exigido.
@@ -157,7 +164,11 @@ Outros achados:
 - As pausas de troca de faixa e de pause rápido ficaram entre 0,2 e 1,8 s, daí a tolerância de 5 s.
 - Com o app em segundo plano, o Android congela o processo e entrega os eventos represados de uma vez quando ele volta, com os horários errados. Por isso o teste do YouTube não valeu, e por isso o app real precisa do foreground service.
 
-## Ainda não testado (fazer com o serviço rodando em background)
+## Achados do uso (depois do spike)
+
+- Vídeo do Facebook, com som e sem som, no aparelho de teste (20/out): nenhum snapshot de escuta. Uma mudança de volume no meio registrou "parado", ou seja, `isMusicActive` falso naquela leitura. Ainda não se sabe se o `isMusicActive` fica falso o tempo todo com o Facebook ou se só nenhum gatilho chegou. O lado bom: o vídeo mudo não contou como escuta falsa. O lado ruim: o vídeo com som também não contou. A API pública dos players só mostra o tipo de uso e a saída de cada um, não se está tocando ou pausado.
+
+## Ainda não testado (observar no uso do dia a dia)
 
 - Ligação normal e chamada de WhatsApp: o `mode` muda? O SCO conta como fone? O `getCommunicationDevice()` (API 31) mostra a rota real da chamada (fone, auricular ou alto-falante)? Se mostrar, ele substitui a suposição da saída de chamada.
 - Notificação chegando com a música tocando.
@@ -169,15 +180,15 @@ Outros achados:
 
 ## Decisões em aberto
 
-- dB `NaN` (quando o `getStreamVolumeDb` lança exceção): como guardar no banco (nullable ou um valor mínimo)?
 - Volume médio: média simples ponderada pelo tempo (boa pra UI) ou média energética, `10·log10(Σ t·10^(dB/10) / Σ t)` (melhor pra falar de exposição).
-- Intervalos: a releitura (1,5 s) e o polling (5 s) estão no `AggregatorConfig` e falta confirmar no aparelho. O do heartbeat ainda não foi definido (sugestão: gravar a cada ~30 s).
+- Intervalos: a releitura (1,5 s) e o polling (5 s) estão no `AggregatorConfig`; o heartbeat grava a cada 30 s. Revisar se o uso mostrar algum problema.
 - Rota manual pro alto-falante com o fone conectado conta como fone. É um caso raro e, por enquanto, aceito.
 
 ## Regras do produto e da Play Store
 
 - Nunca identificar o app nem a mídia. Não use `RECORD_AUDIO`, MediaProjection/AudioPlaybackCapture, NotificationListenerService, Accessibility nem `PACKAGE_USAGE_STATS`.
 - Os dados ficam só no aparelho (por enquanto). Mesmo assim, o app precisa de política de privacidade, e o formulário de Data safety fica sem coleta.
+- Backup na nuvem do Google **desligado** (decidido em 20/out): `allowBackup="false"` no manifest, e o `data_extraction_rules.xml` também exclui tudo do `cloud-backup`. A cópia direta de um celular pro outro (cabo ou Wi-Fi, sem nuvem) continua levando os dados; pra bloquear, é só adicionar um `<device-transfer>` com as mesmas exclusões. O `backup_rules.xml` foi apagado: ele só vale até o Android 11.
 - O maior risco de rejeição na Play é a declaração do FGS `specialUse` (descrição, vídeo e caso de uso). A justificativa: monitoramento contínuo de exposição sonora em fones, ativado pelo usuário.
 - Nada de promessa médica nos textos ("previne perda auditiva", "diagnostica"). Fale de hábito e bem-estar, e de "volume do sistema", nunca de dB SPL.
 - Seja honesto na UI sobre as limitações: o volume do sistema não é o volume real (existe o volume interno de cada app e fones com volume próprio), e o A2DP não diferencia fone de caixa de som.
@@ -196,6 +207,8 @@ Outros achados:
 - A versão da JVM do `:domain` precisa ser a mesma do `compileOptions` do `:app` (11 ou 17). Se não for, o Gradle reclama de "incompatible JVM version".
 - Pode usar `java.time` no `:domain`, porque o minSdk é 31.
 - No `:app`, os testes usam `kotlin("test-junit")` (JUnit 4) e `kotlinx-coroutines-test`. Com o AGP 9, o `kotlin("test")` sozinho não resolve o `kotlin.test.Test`.
+- Nos testes instrumentados (`androidTest`), o nome do teste com crases pode ter espaço (minSdk ≥ 30), mas **não pode ter vírgula**: o D8 recusa ("cannot be represented in dex format"). Nos testes da JVM, pode.
+- O `./gradlew :app:installDebug` instala em **todos** os aparelhos conectados (o celular do James costuma estar conectado por adb sem fio). Pra mirar um só, use `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Referências
 

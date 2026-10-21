@@ -4,4 +4,6 @@
     <string name="monitor_notification_title">Monitorando o fone</string>
     <string name="monitor_notification_text">Contando o tempo e o volume do que você ouve no fone.</string>
     <string name="monitor_notification_pause">Pausar</string>
+    <string name="monitor_today_minutes">Hoje: %1$d min no fone</string>
+    <string name="monitor_today_hours">Hoje: %1$d h %2$02d min no fone</string>
 </resources>

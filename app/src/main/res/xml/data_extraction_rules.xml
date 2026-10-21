@@ -1,19 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Regras de backup (Android 12+). Os dados de escuta não vão pra nuvem do Google: o
+    allowBackup="false" do manifest já desliga isso, e o cloud-backup abaixo deixa explícito,
+    caso alguém religue o allowBackup no futuro.
+    A cópia direta de um celular pro outro (cabo ou Wi-Fi, sem passar pela nuvem) continua
+    levando tudo. Pra bloquear também, adicione um <device-transfer> com as mesmas exclusões.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
-    <!--
-    <device-transfer>
-        <include .../>
-        <exclude .../>
-    </device-transfer>
-    -->
 </data-extraction-rules>

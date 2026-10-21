@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import app.jammes.plugado.debuglog.DebugLogScreen
 import app.jammes.plugado.ui.theme.PlugadoTheme
 
 class MainActivity : ComponentActivity() {
@@ -57,10 +58,14 @@ fun PlugadoApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            when (currentDestination) {
+                // Provisório: a aba Today mostra o log até a tela de hoje existir.
+                AppDestinations.TODAY -> DebugLogScreen(Modifier.padding(innerPadding))
+                else -> Greeting(
+                    name = "Android",
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
         }
     }
 }
