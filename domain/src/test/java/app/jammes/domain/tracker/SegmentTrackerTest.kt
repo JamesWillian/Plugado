@@ -21,6 +21,7 @@ class SegmentTrackerTest {
     private val fone = Output(OutputType.BLUETOOTH, "ZMI PurPods Pro")
     private val vol12 = Volume(index = 12, max = 30, db = -34f)
     private val vol10 = Volume(index = 10, max = 30, db = -39f)
+    private val vol0 = Volume(index = 0, max = 30, db = Float.NEGATIVE_INFINITY) // como o getStreamVolumeDb devolve
 
     private var nextId = 0
     private val tracker = SegmentTracker(
@@ -111,6 +112,22 @@ class SegmentTrackerTest {
         // Log 00:16:20: isMusicActive true sem nenhuma saída de fone
         assertTrue(tracker.onSnapshot(snap(0.0, output = null)).isEmpty())
         assertTrue(tracker.onTick(at(60.0)).isEmpty())
+    }
+
+    @Test
+    fun `volume no zero não conta como escuta`() {
+        assertTrue(tracker.onSnapshot(snap(0.0, volume = vol0)).isEmpty())
+        assertTrue(tracker.onTick(at(60.0)).isEmpty())
+    }
+
+    @Test
+    fun `baixar o volume até zero funciona como pausa`() {
+        val open = tracker.onSnapshot(snap(0.0)).singleOpen()
+        tracker.onSnapshot(snap(60.0, volume = vol0))
+
+        val result = tracker.onTick(at(70.0))
+
+        assertEquals(listOf(TrackerCommand.Close(open.segment.id, at(60.0))), result)
     }
 
     @Test

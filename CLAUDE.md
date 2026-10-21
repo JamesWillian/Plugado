@@ -18,24 +18,25 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 
 ## Estado atual (20/out/2026)
 
-- [x] Projeto criado. minSdk 31 e targetSdk 37 (decisão tomada; conferir no `build.gradle.kts`).
+- [x] Projeto criado: minSdk 31, targetSdk 37, AGP 9.4.1 (Kotlin embutido), Kotlin 2.2.10, Gradle 9.6.0 e JVM 11 no `:app` e no `:domain`.
 - [x] Spike descartável `AudioSpike.kt` no `:app`, rodado num aparelho real. Os achados estão mais abaixo.
-- [x] Módulo `:domain` (Kotlin/JVM puro) criado.
-- [x] `Models.kt`, `SegmentTracker.kt` e `SegmentTrackerTest.kt` escritos, com 9 testes passando. Foram verificados fora do projeto (Kotlin 2.0.21 + um substituto do `kotlin.test`), então falta confirmar no projeto real. Os `package` usam `com.plugado.*` como placeholder.
-- [ ] Camada Android de verdade: fontes, agregador, serviço e Room.
+- [x] Módulo `:domain` (Kotlin/JVM puro) criado. Packages: `app.jammes.domain.model` e `app.jammes.domain.tracker`. O app usa `app.jammes.plugado`.
+- [x] Modelos (um arquivo por classe em `model/`), `SegmentTracker.kt` (com `TrackerConfig` e `TrackerCommand`) e `SegmentTrackerTest.kt`: 11 testes passando no projeto real (`./gradlew :domain:test`, 20/out).
+- [x] `audio/` (fase 2): as quatro fontes, as regras puras (`SnapshotRules.kt`), o leitor do `AudioManager` e o `AudioStateAggregator`, com 15 testes na JVM (`./gradlew :app:testDebugUnitTest`). As fontes e o leitor ainda não rodaram num aparelho; isso vem com o serviço.
+- [ ] Serviço e Room.
 - [ ] Testes de chamada, WhatsApp, notificação e vídeo (dependem do serviço rodando em background).
 - [ ] UI, onboarding e publicação.
 
 ## Próximos passos
 
-1. Conferir se os três arquivos estão no `:domain` com o package certo e rodar `./gradlew :domain:test` (esperado: 9 passando).
-2. Exercício reservado pro James (não escreva por ele, a menos que ele peça): o teste "pausa curta e volta com outro volume". Toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
-3. `audio/`: as quatro fontes como `callbackFlow` e o `AudioStateAggregator` (regras abaixo).
-4. `monitor/MonitorService` (FGS `specialUse`), ligando agregador → tracker → repositório, com a notificação "hoje: X min" e uma ação de pausar.
-5. `data/`: Room (`segments` e `devices`), `ListeningRepository` e DataStore pra lembrar se o monitoramento está ligado.
-6. Trocar o spike por uma tela de log só no build de debug, mostrando os snapshots e os comandos do tracker. Depois, apagar o spike.
-7. Com o serviço em background, rodar os testes pendentes (lista abaixo).
-8. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
+1. Exercícios reservados pro James (não escreva por ele, a menos que ele peça):
+   - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
+   - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
+2. `monitor/MonitorService` (FGS `specialUse`), ligando agregador → tracker → repositório, com a notificação "hoje: X min" e uma ação de pausar.
+3. `data/`: Room (`segments` e `devices`), `ListeningRepository` e DataStore pra lembrar se o monitoramento está ligado.
+4. Trocar o spike por uma tela de log só no build de debug, mostrando os snapshots e os comandos do tracker. Depois, apagar o spike.
+5. Com o serviço em background, rodar os testes pendentes (lista abaixo).
+6. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
 
 ## Arquitetura
 
@@ -45,7 +46,8 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
   tracker/   SegmentTracker, TrackerConfig, TrackerCommand                   [pronto]
   stats/     DailyStats, média de volume                                     [planejado]
 :app
-  audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource, AudioStateAggregator
+  audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource,
+             SnapshotRules, AudioStateReader, AudioStateAggregator              [pronto]
   monitor/   MonitorService, BootReceiver, MonitorNotification
   data/      db/ (entities, DAOs, AppDatabase), prefs/ (DataStore), ListeningRepository
   ui/        today/, history/, devices/, onboarding/
@@ -60,7 +62,8 @@ Fluxo: fontes → agregador (`AudioSnapshot`) → `SegmentTracker` (`TrackerComm
 
 ### Domínio (implementado)
 
-- `AudioSnapshot(at, playing, kind, output?, volume)`, com `isListening = playing && output != null`.
+- `AudioSnapshot(at, playing, kind, output?, volume)`, com `isListening = playing && output != null && volume.index > 0`.
+- Volume 0 não conta como escuta (decidido em 20/out): no zero não se ouve nada. Assim, nenhum trecho fica com volume 0, e o `-Infinity` dB nunca chega no banco.
 - `Output(type, name)` representa um aparelho físico: o A2DP e o SCO do mesmo fone viram um `Output` só (`BLUETOOTH` + `productName`).
 - `Volume(index, max, db)`: guarde sempre os três, porque o máximo muda por aparelho (15 no Android puro, 30 no aparelho de teste).
 - `Segment(id, sessionId, startedAt, day, kind, output, volume)` é um trecho com parâmetros constantes. Uma **sessão** é uma escuta contínua, com um ou mais trechos.
@@ -72,16 +75,17 @@ Regras do tracker:
 - Sem sessão e `isListening` → abre sessão e trecho. Vale também pro primeiro snapshot, se o app iniciar com música já tocando.
 - Parou de ouvir → marca `pausedAt`. Se voltar em até 5 s com os mesmos parâmetros, segue o mesmo trecho (a pausa conta como escuta). Se voltar com parâmetros diferentes, `Close` em `pausedAt` + `Open` em `s.at` (a pausa fica de fora).
 - Volume, saída ou tipo mudou enquanto toca → `Close` + `Open` no mesmo instante, na mesma sessão.
+- Volume chegou a 0 → conta como parar de ouvir: marca `pausedAt`, e as regras de pausa valem do mesmo jeito.
 - Pausa maior que 5 s → a sessão termina em `pausedAt`, e não no momento em que isso foi detectado.
 - Sessão com menos de 10 s (do início ao fim, contando pausas) → `DiscardSession`, que apaga todos os trechos dela. É isso que elimina o som de conexão do fone.
 - Meia-noite (no `zone`) → `Close` na meia-noite + `Open` de um trecho novo no dia seguinte, na mesma sessão.
 - `onTick` expira a pausa vencida, divide na meia-noite e emite `Heartbeat` (com `pausedAt ?: now`).
 
-Os 9 testes do `SegmentTrackerTest` cobrem: app iniciando com música tocando, som de conexão (~2 s) descartado, troca de faixa sem quebrar o trecho, pausa longa fechando no momento da pausa, volume abrindo trecho novo na mesma sessão, tirar o fone fechando quando a música para, alto-falante não contando, divisão na meia-noite e `stop` fechando a sessão aberta. Cada caso veio de um log do spike (comentários `// Log hh:mm:ss`).
+Os 11 testes do `SegmentTrackerTest` cobrem: app iniciando com música tocando, som de conexão (~2 s) descartado, troca de faixa sem quebrar o trecho, pausa longa fechando no momento da pausa, volume abrindo trecho novo na mesma sessão, tirar o fone fechando quando a música para, alto-falante não contando, divisão na meia-noite, `stop` fechando a sessão aberta, volume 0 não contando e volume indo a 0 funcionando como pausa. Cada caso veio de um log do spike (comentários `// Log hh:mm:ss`).
 
-### Agregador (planejado, com regras tiradas do spike)
+### Agregador (implementado, com regras tiradas do spike)
 
-Sugestão: as fontes emitem só **gatilhos**, e a cada gatilho o agregador lê o estado atual do `AudioManager` e monta o snapshot.
+As fontes (`TriggerSource`, um `callbackFlow` cada) emitem só **gatilhos** (`Unit`). O `SystemAudioStateReader` lê o `AudioManager` numa `AudioReading` crua, e o `AudioReading.toSnapshot()` (em `SnapshotRules.kt`) aplica as regras abaixo. Ele é puro: usa só constantes do Android, e o volume entra por um `VolumeLookup`. Por isso roda em teste na JVM.
 
 - `playing` = `isMusicActive`, ou `mode` em `IN_CALL`/`IN_COMMUNICATION`.
 - `kind` = `CALL` se o mode for de chamada, senão `MEDIA`.
@@ -90,10 +94,14 @@ Sugestão: as fontes emitem só **gatilhos**, e a cada gatilho o agregador lê o
 - Saídas que o usuário marcar como "não é fone" (tabela `devices`) viram `output = null`.
 - `volume`: stream `MUSIC` pra mídia e `VOICE_CALL` pra chamada. O dB vem de `getStreamVolumeDb(stream, index, tipo)` com o tipo da saída onde o som realmente toca (A2DP, não SCO; o spike errou isso na primeira versão).
 - Não tome decisões pela lista de players: ela oscila e vem anonimizada.
-- Use debounce de ~400 ms (os callbacks chegam em rajadas) e `distinctUntilChanged` comparando **sem** o `at`. Carimbe o `at` depois.
+- Debounce de 400 ms (os callbacks chegam em rajadas) e `distinctUntilChanged` comparando **sem** o `at`. O `at` é o horário da leitura.
+- Se o `getStreamVolumeDb` lançar exceção (tipo de saída que o aparelho não aceita), o dB vira `NaN`.
 - Na troca de dispositivo, o volume novo já aparece na leitura feita no próprio callback de dispositivo. O `ContentObserver` nem sempre dispara nessa hora, e o broadcast de volume não disparou nenhuma vez nessa situação.
 
-⚠️ **O `isMusicActive` não tem callback.** Ele vira `false` até ~0,7 s *depois* do último callback de playback, e nenhum evento avisa dessa virada. Se o agregador só ler o estado nos gatilhos, um pause pode passar despercebido até o próximo evento qualquer, e horas seriam contadas a mais. O spike só viu essas viradas porque tinha polling de 500 ms. Solução sugerida: depois de cada gatilho de playback, agendar uma releitura ~1,5 s depois; e, enquanto `hasOpenSession` for true, reler o estado a cada poucos segundos (o aparelho já está acordado tocando áudio).
+⚠️ **O `isMusicActive` não tem callback.** Ele vira `false` até ~0,7 s *depois* do último callback de playback, e nenhum evento avisa dessa virada. Se o agregador só ler o estado nos gatilhos, um pause pode passar despercebido até o próximo evento qualquer, e horas seriam contadas a mais. O spike só viu essas viradas porque tinha polling de 500 ms. Como ficou no `AudioStateAggregator` (valores no `AggregatorConfig`):
+- Depois de **cada** rajada de gatilhos (não só de playback, porque ler de novo é barato), uma releitura 1,5 s depois.
+- Enquanto o último snapshot for `isListening`, polling a cada 5 s. Isso mantém o agregador independente do tracker: durante a pausa não precisa, porque a volta do play sempre chega com callback de playback. As expirações de pausa continuam vindo dos ticks do serviço.
+- A lista de "não é fone" entra como `Flow<Set<Output>>` (vazia até existir o Room) e, quando muda, relê na hora.
 
 ### Banco (planejado)
 
@@ -139,18 +147,18 @@ Outros achados:
 
 ## Ainda não testado (fazer com o serviço rodando em background)
 
-- Ligação normal e chamada de WhatsApp: o `mode` muda? O SCO conta como fone?
+- Ligação normal e chamada de WhatsApp: o `mode` muda? O SCO conta como fone? O `getCommunicationDevice()` (API 31) mostra a rota real da chamada (fone, auricular ou alto-falante)? Se mostrar, ele substitui a suposição da saída de chamada.
 - Notificação chegando com a música tocando.
 - YouTube, e vídeo **sem som** no feed (prévias, Reels mudos). Se o `isMusicActive` ligar nesse caso, rolar o feed de fone vira escuta falsa, e talvez isso tenha que ficar como limitação conhecida.
-- Fone com fio ou USB-C (o `productName` pode vir genérico), caixa de som Bluetooth e som do carro.
+- Fone com fio ou USB-C (o `productName` pode vir genérico, e um adaptador USB-C pode aparecer como `TYPE_USB_DEVICE`, que hoje não conta), caixa de som Bluetooth e som do carro.
 - Outros fabricantes (Samsung, outras marcas) e Android 17 com as restrições de áudio forçadas.
 - `getAudioDevicesForAttributes` (API 33): confirmar se existe e se mostra a rota real da mídia. Se sim, dá pra refinar a regra da saída.
 
 ## Decisões em aberto
 
-- Volume 0 (`-Infinity` dB): conta como escuta? E como guardar o dB nesse caso (nullable ou um valor mínimo)?
+- dB `NaN` (quando o `getStreamVolumeDb` lança exceção): como guardar no banco (nullable ou um valor mínimo)?
 - Volume médio: média simples ponderada pelo tempo (boa pra UI) ou média energética, `10·log10(Σ t·10^(dB/10) / Σ t)` (melhor pra falar de exposição).
-- Intervalos exatos de releitura e de heartbeat.
+- Intervalos: a releitura (1,5 s) e o polling (5 s) estão no `AggregatorConfig` e falta confirmar no aparelho. O do heartbeat ainda não foi definido (sugestão: gravar a cada ~30 s).
 - Rota manual pro alto-falante com o fone conectado conta como fone. É um caso raro e, por enquanto, aceito.
 
 ## Regras do produto e da Play Store
@@ -164,6 +172,7 @@ Outros achados:
 ## Comandos
 
 - `./gradlew :domain:test`: testes do domínio.
+- `./gradlew :app:testDebugUnitTest`: testes do `:app` na JVM (regras e agregador).
 - `./gradlew :app:installDebug`: instala no aparelho.
 - `adb logcat -s PlugadoSpike`: logs do spike.
 
@@ -172,6 +181,7 @@ Outros achados:
 - No `domain/build.gradle.kts`: `testImplementation(kotlin("test"))` e `tasks.test { useJUnitPlatform() }`.
 - A versão da JVM do `:domain` precisa ser a mesma do `compileOptions` do `:app` (11 ou 17). Se não for, o Gradle reclama de "incompatible JVM version".
 - Pode usar `java.time` no `:domain`, porque o minSdk é 31.
+- No `:app`, os testes usam `kotlin("test-junit")` (JUnit 4) e `kotlinx-coroutines-test`. Com o AGP 9, o `kotlin("test")` sozinho não resolve o `kotlin.test.Test`.
 
 ## Referências
 
