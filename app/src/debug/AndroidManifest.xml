@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- taskAffinity próprio: sem isso, o ícone do log pode só trazer a tarefa do app pra frente. -->
+        <activity
+            android:name=".debuglog.DebugLogActivity"
+            android:exported="true"
+            android:label="@string/debug_log_label"
+            android:taskAffinity="app.jammes.plugado.debuglog"
+            android:theme="@style/Theme.Plugado">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

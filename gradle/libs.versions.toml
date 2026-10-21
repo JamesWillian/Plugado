@@ -10,6 +10,7 @@ kotlin = "2.2.10"
 composeBom = "2025.12.00"
 jetbrainsKotlinJvm = "2.2.10"
 kotlinxCoroutines = "1.10.2"
+koin = "4.1.1" # o 4.2.x puxa a kotlin-stdlib 2.3, mais nova que o compilador
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -29,6 +30,8 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compose.material3", name = "material3-adaptive-navigation-suite" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koin" }
+koin-android = { group = "io.insert-koin", name = "koin-android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

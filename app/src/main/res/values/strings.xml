@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Plugado</string>
+    <string name="monitor_channel_name">Monitoramento</string>
+    <string name="monitor_notification_title">Monitorando o fone</string>
+    <string name="monitor_notification_text">Contando o tempo e o volume do que você ouve no fone.</string>
+    <string name="monitor_notification_pause">Pausar</string>
 </resources>

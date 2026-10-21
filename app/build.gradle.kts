@@ -46,6 +46,8 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
     testImplementation(libs.junit)
     testImplementation(kotlin("test-junit")) // no :app o AGP não escolhe a variante do JUnit 4 sozinho
     testImplementation(libs.kotlinx.coroutines.test)

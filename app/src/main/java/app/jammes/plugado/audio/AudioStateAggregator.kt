@@ -2,6 +2,7 @@ package app.jammes.plugado.audio
 
 import app.jammes.domain.model.AudioSnapshot
 import app.jammes.domain.model.Output
+import app.jammes.plugado.util.ticker
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -73,12 +74,5 @@ class AudioStateAggregator(
                 .distinctUntilChanged { old, new -> old.copy(at = new.at) == new }
                 .onEach { listening.value = it.isListening },
         )
-    }
-
-    private fun ticker(period: Duration) = flow {
-        while (true) {
-            delay(period)
-            emit(Unit)
-        }
     }
 }

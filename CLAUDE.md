@@ -19,11 +19,12 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 ## Estado atual (20/out/2026)
 
 - [x] Projeto criado: minSdk 31, targetSdk 37, AGP 9.4.1 (Kotlin embutido), Kotlin 2.2.10, Gradle 9.6.0 e JVM 11 no `:app` e no `:domain`.
-- [x] Spike descartável `AudioSpike.kt` no `:app`, rodado num aparelho real. Os achados estão mais abaixo.
+- [x] Spike descartável `AudioSpike.kt` no `:app`, rodado num aparelho real. Os achados estão mais abaixo. Foi apagado na fase 3 e continua no histórico do git.
 - [x] Módulo `:domain` (Kotlin/JVM puro) criado. Packages: `app.jammes.domain.model` e `app.jammes.domain.tracker`. O app usa `app.jammes.plugado`.
 - [x] Modelos (um arquivo por classe em `model/`), `SegmentTracker.kt` (com `TrackerConfig` e `TrackerCommand`) e `SegmentTrackerTest.kt`: 11 testes passando no projeto real (`./gradlew :domain:test`, 20/out).
 - [x] `audio/` (fase 2): as quatro fontes, as regras puras (`SnapshotRules.kt`), o leitor do `AudioManager` e o `AudioStateAggregator`, com 15 testes na JVM (`./gradlew :app:testDebugUnitTest`). As fontes e o leitor ainda não rodaram num aparelho; isso vem com o serviço.
-- [ ] Serviço e Room.
+- [x] `monitor/` (fase 3): `ListeningMonitor` (com 4 testes), `MonitorService` (FGS `specialUse`), `MonitorNotification`, Koin (`di/`) e a tela de log só no debug (ícone "Plugado log"). No emulador (API 37): o FGS sobe como `specialUse` mesmo com a notificação negada, o processo fica em `FOREGROUND_SERVICE`, uma mudança de volume com o app em background vira snapshot ~0,45 s depois, e desligar funciona. Falta validar no aparelho real, com música e fone.
+- [ ] Room (fase 5, depois dos testes de campo).
 - [ ] Testes de chamada, WhatsApp, notificação e vídeo (dependem do serviço rodando em background).
 - [ ] UI, onboarding e publicação.
 
@@ -32,11 +33,10 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 1. Exercícios reservados pro James (não escreva por ele, a menos que ele peça):
    - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
    - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
-2. `monitor/MonitorService` (FGS `specialUse`), ligando agregador → tracker → repositório, com a notificação "hoje: X min" e uma ação de pausar.
-3. `data/`: Room (`segments` e `devices`), `ListeningRepository` e DataStore pra lembrar se o monitoramento está ligado.
-4. Trocar o spike por uma tela de log só no build de debug, mostrando os snapshots e os comandos do tracker. Depois, apagar o spike.
-5. Com o serviço em background, rodar os testes pendentes (lista abaixo).
-6. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
+2. Validar a fase 3 no aparelho real (é o James quem testa): ligar pelo "Plugado log", tocar música com a tela desligada, pausar, mudar o volume e tirar o fone. O log precisa mostrar cada coisa no horário certo.
+3. Testes de campo em background (lista "Ainda não testado"). Cada achado vira regra + teste no agregador.
+4. `data/`: Room (`segments` e `devices`), `ListeningRepository` como `CommandSink` (com a folga do heartbeat), DataStore pra lembrar se o monitoramento está ligado, fechamento dos trechos órfãos, `BootReceiver` e a notificação "hoje: X min". A tabela `devices` alimenta o `notHeadphones` do agregador.
+5. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
 
 ## Arquitetura
 
@@ -48,10 +48,14 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 :app
   audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource,
              SnapshotRules, AudioStateReader, AudioStateAggregator              [pronto]
-  monitor/   MonitorService, BootReceiver, MonitorNotification
+  monitor/   ListeningMonitor, CommandSink, MonitorListener, MonitorService,
+             MonitorNotification                                             [pronto]
+             BootReceiver                                                    [planejado]
   data/      db/ (entities, DAOs, AppDatabase), prefs/ (DataStore), ListeningRepository
   ui/        today/, history/, devices/, onboarding/
-  di/        módulos Koin
+  di/        AppModule; variantModule existe em src/debug e em src/release   [pronto]
+  util/      ticker
+  debuglog/  (só em src/debug) DebugLog, DebugLogActivity                    [pronto]
 ```
 
 Fluxo: fontes → agregador (`AudioSnapshot`) → `SegmentTracker` (`TrackerCommand`) → serviço grava no Room → notificação e UI leem do Room via `Flow`.
@@ -111,8 +115,16 @@ As fontes (`TriggerSource`, um `callbackFlow` cada) emitem só **gatilhos** (`Un
 - Ao iniciar o serviço, trechos com `endedAt` nulo (o processo morreu) fecham em `lastSeenAt`. Aplique também a regra dos 10 s por sessão.
 - Totais por dia e volume médio saem de uma query com `GROUP BY day`, exposta como `Flow`.
 
-### Serviço e Android (planejado)
+### Serviço e Android (fase 3 implementada)
 
+Como ficou:
+- O `ListeningMonitor` é o laço: snapshots e ticks entram num `merge` coletado por um coroutine só (o tracker não é thread-safe), e os comandos vão pro `CommandSink` e pro `MonitorListener`. Ticks a cada 5 s (`MonitorConfig`), só com sessão aberta. Ao ser cancelado, ele chama o `tracker.stop()` dentro de `NonCancellable`. É puro e é testado em tempo virtual.
+- `CommandSink` é quem grava (hoje é um no-op; na fase 5 é o Room). `MonitorListener` é quem só acompanha (o `DebugLog` no debug, `MonitorListener.None` no release). O Koin escolhe pelo `variantModule`.
+- O `MonitorService` só hospeda o `run()` num `CoroutineScope` próprio. `onDestroy` cancela o scope, e é isso que fecha a sessão. `START_STICKY`. Se o `startForeground` for recusado (`ForegroundServiceStartNotAllowedException`), o serviço se desliga em vez de quebrar.
+- A ação "Pausar" da notificação manda um `ACTION_STOP` pro próprio serviço. A notificação usa `FOREGROUND_SERVICE_IMMEDIATE`.
+- A tela "Plugado log" é uma segunda activity de launcher, só no debug, com `taskAffinity` próprio. O log fica em memória e vai também pro logcat (tag `Plugado`).
+
+Regras que continuam valendo:
 - Foreground service do tipo `specialUse`. Não use `mediaPlayback` (o app não toca mídia) nem `dataSync` (tem limite de tempo). Declare o `android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE` no manifest e use `ServiceCompat.startForeground`. O tipo `specialUse` só existe a partir da API 34; nas APIs 31–33 o tipo não é exigido.
 - O serviço inicia pela UI (quando o usuário liga o monitoramento) e pelo `BootReceiver` (`BOOT_COMPLETED`, e também `MY_PACKAGE_REPLACED` pra voltar depois de uma atualização), se o monitoramento estiver ligado no DataStore.
 - Permissões: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE`, `POST_NOTIFICATIONS` (runtime a partir do 13) e `RECEIVE_BOOT_COMPLETED`. `BLUETOOTH_CONNECT` é opcional.
@@ -152,6 +164,7 @@ Outros achados:
 - YouTube, e vídeo **sem som** no feed (prévias, Reels mudos). Se o `isMusicActive` ligar nesse caso, rolar o feed de fone vira escuta falsa, e talvez isso tenha que ficar como limitação conhecida.
 - Fone com fio ou USB-C (o `productName` pode vir genérico, e um adaptador USB-C pode aparecer como `TYPE_USB_DEVICE`, que hoje não conta), caixa de som Bluetooth e som do carro.
 - Outros fabricantes (Samsung, outras marcas) e Android 17 com as restrições de áudio forçadas.
+- Reinício pelo `START_STICKY` depois que o sistema mata o processo: o `startForeground` é aceito? Se for recusado, o serviço se desliga sem quebrar e deixa um aviso no logcat.
 - `getAudioDevicesForAttributes` (API 33): confirmar se existe e se mostra a rota real da mídia. Se sim, dá pra refinar a regra da saída.
 
 ## Decisões em aberto
@@ -174,7 +187,8 @@ Outros achados:
 - `./gradlew :domain:test`: testes do domínio.
 - `./gradlew :app:testDebugUnitTest`: testes do `:app` na JVM (regras e agregador).
 - `./gradlew :app:installDebug`: instala no aparelho.
-- `adb logcat -s PlugadoSpike`: logs do spike.
+- `adb logcat -s Plugado`: log do monitor (build de debug).
+- `adb shell cmd audio set-volume 3 <n>`: muda o volume de mídia, pra testar a fonte de volume. O `cmd media_session volume --set` e a tecla de volume sem mídia tocando **não** mudam o volume de mídia no emulador.
 
 ## Configuração
 

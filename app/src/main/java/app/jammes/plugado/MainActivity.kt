@@ -20,7 +20,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import app.jammes.plugado.spike.SpikeScreen
 import app.jammes.plugado.ui.theme.PlugadoTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,7 +28,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PlugadoTheme {
-                SpikeScreen()
+                PlugadoApp()
             }
         }
     }
