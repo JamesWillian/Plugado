@@ -32,6 +32,7 @@ class ListeningMonitor(
     private val tracker: SegmentTracker,
     private val sink: CommandSink,
     private val listener: MonitorListener = MonitorListener.None,
+    private val status: MonitorStatus = MonitorStatus(),
     private val config: MonitorConfig = MonitorConfig(),
     private val now: () -> Instant = Instant::now,
 ) {
@@ -56,6 +57,7 @@ class ListeningMonitor(
                 val commands = when (input) {
                     is Input.Snapshot -> {
                         listener.onSnapshot(input.snapshot)
+                        status.setListening(input.snapshot.isListening)
                         tracker.onSnapshot(input.snapshot)
                     }
                     Input.Tick -> tracker.onTick(now())
@@ -66,6 +68,7 @@ class ListeningMonitor(
         } finally {
             withContext(NonCancellable) {
                 execute(tracker.stop(now()))
+                status.setListening(false)
                 listener.onStopped()
             }
         }

@@ -1,0 +1,136 @@
+<resources>
+    <!-- Navegação -->
+    <string name="nav_today">Hoy</string>
+    <string name="nav_history">Historial</string>
+    <string name="nav_devices">Dispositivos</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="action_back">Volver</string>
+    <string name="action_cancel">Cancelar</string>
+
+    <!-- Hoje -->
+    <string name="today_title">Hoy</string>
+    <string name="today_status_listening">Escuchando ahora</string>
+    <string name="today_status_monitoring">Monitoreando</string>
+    <string name="today_status_paused">En pausa</string>
+    <string name="today_status_a11y_on">Monitoreo activado. Toca para pausar.</string>
+    <string name="today_status_a11y_paused">Monitoreo en pausa. Toca para reanudar.</string>
+    <string name="today_paused_title">Monitoreo en pausa</string>
+    <string name="today_paused_body">Tu tiempo con auriculares no se está contando.</string>
+    <string name="today_resume">Reanudar</string>
+    <string name="today_hero_caption">con auriculares hoy</string>
+    <string name="today_above_average">%1$s por encima de tu promedio de 7 días</string>
+    <string name="today_below_average">%1$s por debajo de tu promedio de 7 días</string>
+    <string name="today_at_average">En tu promedio de 7 días</string>
+    <string name="today_timeline_title">Tu día</string>
+    <string name="today_timeline_now">ahora, %1$s</string>
+    <string name="today_timeline_a11y">Línea de tiempo de hoy</string>
+    <string name="stat_average_volume">Volumen promedio</string>
+    <string name="stat_sessions">Sesiones</string>
+    <string name="stat_longest">La más larga</string>
+    <string name="today_volume_note">Volumen del sistema del teléfono. El volumen en tus oídos también depende de los auriculares y de la app.</string>
+    <string name="session_now">ahora</string>
+    <string name="session_detail">%1$s · volumen %2$s</string>
+    <string name="today_empty_title">Nada por ahora</string>
+    <string name="today_empty_body">Conecta tus auriculares y dale play en cualquier app. El tiempo empieza a contar solo.</string>
+
+    <!-- Histórico -->
+    <string name="history_title">Historial</string>
+    <string name="history_period">Período</string>
+    <string name="history_7_days">7 días</string>
+    <string name="history_30_days">30 días</string>
+    <string name="history_subtitle">%1$s · promedio de %2$s por día</string>
+    <string name="history_chart_a11y">Tiempo con auriculares por día</string>
+    <string name="history_day_a11y">%1$s: %2$s</string>
+    <string name="stat_longest_day">Día más largo (%1$s)</string>
+    <string name="history_by_day">Por día</string>
+    <string name="day_today">Hoy</string>
+    <string name="day_yesterday">Ayer</string>
+    <string name="history_row_detail">%1$s · volumen %2$s</string>
+    <string name="history_empty_title">Todavía no hay historial</string>
+    <string name="history_empty_body">Tus días aparecen aquí cuando escuches algo con auriculares.</string>
+
+    <!-- Dispositivos -->
+    <string name="devices_title">Dispositivos</string>
+    <string name="devices_intro">Todo lo que usaste para escuchar. Desactiva lo que no sea auriculares, como parlantes y el audio del auto: su tiempo deja de contar, incluso lo que ya se contó.</string>
+    <string name="device_kind_bluetooth">Bluetooth</string>
+    <string name="device_kind_wired">Con cable</string>
+    <string name="device_kind_usb">USB</string>
+    <string name="device_kind_ble">Bluetooth LE</string>
+    <string name="device_kind_hearing_aid">Audífono</string>
+    <string name="device_total">%1$s · %2$s en total</string>
+    <string name="device_not_counted">%1$s · no cuenta</string>
+    <string name="devices_note">Android no distingue auriculares de parlantes Bluetooth. Por eso, cada salida nueva empieza contando.</string>
+    <string name="devices_empty_title">Todavía no hay dispositivos</string>
+    <string name="devices_empty_body">Aparecen aquí cuando escuches algo con auriculares.</string>
+
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_preferences">Preferencias</string>
+    <string name="settings_theme">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Oscuro</string>
+    <string name="theme_system_hint">Sigue el tema del teléfono</string>
+    <string name="settings_language">Idioma</string>
+    <string name="language_system">Predeterminado del sistema</string>
+    <string name="language_system_short">Del sistema</string>
+    <string name="settings_monitoring">Monitoreo</string>
+    <string name="settings_monitor_row">Monitorear auriculares</string>
+    <string name="settings_monitor_on">Contando tu tiempo con auriculares</string>
+    <string name="settings_monitor_off">En pausa</string>
+    <string name="settings_battery">Batería sin restricciones</string>
+    <string name="settings_battery_allowed">Permitida</string>
+    <string name="settings_battery_not_allowed">No permitida</string>
+    <string name="settings_privacy_data">Privacidad y datos</string>
+    <string name="settings_privacy_policy">Política de privacidad</string>
+    <string name="settings_delete_all">Eliminar todos los datos</string>
+    <string name="settings_footer">Tus datos se quedan solo en este teléfono.</string>
+    <string name="settings_version">Plugado · versión %1$s</string>
+    <string name="delete_title">¿Eliminar todos los datos?</string>
+    <string name="delete_body">Esto borra tu historial de escucha y la lista de dispositivos de este teléfono. No se puede deshacer.</string>
+    <string name="delete_confirm">Eliminar datos</string>
+    <string name="delete_done">Datos eliminados</string>
+
+    <!-- Privacidade -->
+    <string name="privacy_title">Privacidad</string>
+    <string name="privacy_intro">Plugado mide tu tiempo con auriculares sin invadir tu privacidad. En resumen:</string>
+    <string name="privacy_records_title">Lo que Plugado registra</string>
+    <string name="privacy_records_body">Cuándo sale sonido por los auriculares, por cuánto tiempo y con qué volumen del sistema. También guarda el nombre de los auriculares y parlantes que conectaste.</string>
+    <string name="privacy_not_title">Lo que no hace</string>
+    <string name="privacy_not_body">No graba audio, no sabe qué app o canción está sonando y no usa internet.</string>
+    <string name="privacy_where_title">Dónde quedan tus datos</string>
+    <string name="privacy_where_body">Solo en este teléfono, sin nube y sin copia de seguridad de Google. Si pasas tus apps a un teléfono nuevo, el historial va con ellas.</string>
+    <string name="privacy_control_title">Tú tienes el control</string>
+    <string name="privacy_control_body">Pausa cuando quieras y borra todo en Ajustes › Eliminar todos los datos.</string>
+    <string name="privacy_full_policy">Leer la política completa</string>
+    <string name="privacy_updated">Actualizada en octubre de 2026</string>
+
+    <!-- Primeiro uso -->
+    <string name="welcome_title">¿Cuánto tiempo pasas con auriculares?</string>
+    <string name="welcome_body">Plugado mide solo el tiempo y el volumen de lo que escuchas con auriculares, todos los días.</string>
+    <string name="welcome_point_time">Tiempo con auriculares por día y por semana</string>
+    <string name="welcome_point_volume">Volumen del sistema en cada tramo</string>
+    <string name="welcome_point_private">Todo se queda en tu teléfono</string>
+    <string name="welcome_start">Empezar</string>
+    <string name="welcome_footer">No grabamos audio ni sabemos qué escuchas.</string>
+    <string name="setup_title">Antes de empezar</string>
+    <string name="setup_body">Dos ajustes para que Plugado cuente tu tiempo sin fallas.</string>
+    <string name="setup_notifications_title">Notificaciones</string>
+    <string name="setup_notifications_body">Muestran cuánto escuchaste hoy y te dejan pausar con un toque.</string>
+    <string name="setup_notifications_action">Permitir</string>
+    <string name="setup_notifications_done">Permitidas</string>
+    <string name="setup_battery_title">Batería sin restricciones</string>
+    <string name="setup_battery_body">Algunos teléfonos cierran apps en segundo plano. Así Plugado no deja de contar.</string>
+    <string name="setup_battery_action">Abrir ajustes</string>
+    <string name="setup_battery_done">Permitida</string>
+    <string name="setup_turn_on">Activar monitoreo</string>
+    <string name="setup_not_now">Ahora no</string>
+
+    <!-- Notificação do monitoramento -->
+    <string name="monitor_channel_name">Monitoreo</string>
+    <string name="monitor_notification_title">Monitoreando tus auriculares</string>
+    <string name="monitor_notification_text">Contando el tiempo y el volumen de lo que escuchas con auriculares.</string>
+    <string name="monitor_notification_pause">Pausar</string>
+    <string name="monitor_today_minutes">Hoy: %1$d min con auriculares</string>
+    <string name="monitor_today_hours">Hoy: %1$d h %2$02d min con auriculares</string>
+</resources>

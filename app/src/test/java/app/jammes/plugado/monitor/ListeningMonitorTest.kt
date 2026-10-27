@@ -112,6 +112,28 @@ class ListeningMonitorTest {
     }
 
     @Test
+    fun `o status diz se tem alguém ouvindo agora`() = runTest {
+        val status = MonitorStatus()
+        val monitor = ListeningMonitor(
+            snapshots = snapshots.receiveAsFlow(),
+            tracker = tracker,
+            sink = CommandSink { executed += it },
+            status = status,
+            now = { ms(currentTime) },
+        )
+        val monitoring = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { monitor.run() }
+
+        send(playing = true)
+        val whilePlaying = status.listening.value
+        send(playing = false)
+        val whilePaused = status.listening.value
+        send(playing = true)
+        monitoring.cancelAndJoin()
+
+        assertEquals(listOf(true, false, false), listOf(whilePlaying, whilePaused, status.listening.value))
+    }
+
+    @Test
     fun `desligar o monitor fecha a sessão aberta`() = runTest {
         val monitoring = start()
         send(playing = true)

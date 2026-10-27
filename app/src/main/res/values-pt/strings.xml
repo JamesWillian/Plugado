@@ -1,0 +1,136 @@
+<resources>
+    <!-- Navegação -->
+    <string name="nav_today">Hoje</string>
+    <string name="nav_history">Histórico</string>
+    <string name="nav_devices">Dispositivos</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="action_back">Voltar</string>
+    <string name="action_cancel">Cancelar</string>
+
+    <!-- Hoje -->
+    <string name="today_title">Hoje</string>
+    <string name="today_status_listening">Ouvindo agora</string>
+    <string name="today_status_monitoring">Monitorando</string>
+    <string name="today_status_paused">Pausado</string>
+    <string name="today_status_a11y_on">Monitoramento ligado. Toque para pausar.</string>
+    <string name="today_status_a11y_paused">Monitoramento pausado. Toque para retomar.</string>
+    <string name="today_paused_title">Monitoramento pausado</string>
+    <string name="today_paused_body">O tempo de fone não está sendo contado.</string>
+    <string name="today_resume">Retomar</string>
+    <string name="today_hero_caption">de fone hoje</string>
+    <string name="today_above_average">%1$s acima da média dos últimos 7 dias</string>
+    <string name="today_below_average">%1$s abaixo da média dos últimos 7 dias</string>
+    <string name="today_at_average">Na média dos últimos 7 dias</string>
+    <string name="today_timeline_title">Linha do dia</string>
+    <string name="today_timeline_now">agora, %1$s</string>
+    <string name="today_timeline_a11y">Linha do tempo de hoje</string>
+    <string name="stat_average_volume">Volume médio</string>
+    <string name="stat_sessions">Sessões</string>
+    <string name="stat_longest">Mais longa</string>
+    <string name="today_volume_note">Volume do sistema do celular. O volume no ouvido também depende do fone e do app.</string>
+    <string name="session_now">agora</string>
+    <string name="session_detail">%1$s · volume %2$s</string>
+    <string name="today_empty_title">Nada por enquanto</string>
+    <string name="today_empty_body">Conecte o fone e dê play em qualquer app. O tempo começa a contar sozinho.</string>
+
+    <!-- Histórico -->
+    <string name="history_title">Histórico</string>
+    <string name="history_period">Período</string>
+    <string name="history_7_days">7 dias</string>
+    <string name="history_30_days">30 dias</string>
+    <string name="history_subtitle">%1$s · média de %2$s por dia</string>
+    <string name="history_chart_a11y">Tempo de fone por dia</string>
+    <string name="history_day_a11y">%1$s: %2$s</string>
+    <string name="stat_longest_day">Dia mais longo (%1$s)</string>
+    <string name="history_by_day">Por dia</string>
+    <string name="day_today">Hoje</string>
+    <string name="day_yesterday">Ontem</string>
+    <string name="history_row_detail">%1$s · volume %2$s</string>
+    <string name="history_empty_title">Ainda sem histórico</string>
+    <string name="history_empty_body">Os seus dias aparecem aqui quando você ouvir algo no fone.</string>
+
+    <!-- Dispositivos -->
+    <string name="devices_title">Dispositivos</string>
+    <string name="devices_intro">Tudo por onde você já ouviu. Desligue o que não é fone, como caixa de som e som do carro: o tempo deles deixa de contar, inclusive o que já foi contado.</string>
+    <string name="device_kind_bluetooth">Bluetooth</string>
+    <string name="device_kind_wired">Com fio</string>
+    <string name="device_kind_usb">USB</string>
+    <string name="device_kind_ble">Bluetooth LE</string>
+    <string name="device_kind_hearing_aid">Aparelho auditivo</string>
+    <string name="device_total">%1$s · %2$s no total</string>
+    <string name="device_not_counted">%1$s · não conta</string>
+    <string name="devices_note">O Android não diferencia fone de caixa de som Bluetooth. Por isso, toda saída nova começa contando.</string>
+    <string name="devices_empty_title">Nenhum dispositivo ainda</string>
+    <string name="devices_empty_body">Eles aparecem aqui quando você ouvir algo no fone.</string>
+
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_preferences">Preferências</string>
+    <string name="settings_theme">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Escuro</string>
+    <string name="theme_system_hint">Segue o tema do celular</string>
+    <string name="settings_language">Idioma</string>
+    <string name="language_system">Padrão do sistema</string>
+    <string name="language_system_short">Padrão do sistema</string>
+    <string name="settings_monitoring">Monitoramento</string>
+    <string name="settings_monitor_row">Monitorar o fone</string>
+    <string name="settings_monitor_on">Contando o seu tempo de fone</string>
+    <string name="settings_monitor_off">Pausado</string>
+    <string name="settings_battery">Bateria sem restrições</string>
+    <string name="settings_battery_allowed">Liberada</string>
+    <string name="settings_battery_not_allowed">Não liberada</string>
+    <string name="settings_privacy_data">Privacidade e dados</string>
+    <string name="settings_privacy_policy">Política de privacidade</string>
+    <string name="settings_delete_all">Excluir todos os dados</string>
+    <string name="settings_footer">Seus dados ficam só neste celular.</string>
+    <string name="settings_version">Plugado · versão %1$s</string>
+    <string name="delete_title">Excluir todos os dados?</string>
+    <string name="delete_body">Isso apaga o histórico de escuta e a lista de dispositivos deste celular. Não dá para desfazer.</string>
+    <string name="delete_confirm">Excluir dados</string>
+    <string name="delete_done">Dados excluídos</string>
+
+    <!-- Privacidade -->
+    <string name="privacy_title">Privacidade</string>
+    <string name="privacy_intro">O Plugado mede o seu tempo de fone sem invadir a sua privacidade. Em resumo:</string>
+    <string name="privacy_records_title">O que o Plugado registra</string>
+    <string name="privacy_records_body">Quando sai som pelo fone, por quanto tempo e com qual volume do sistema. Também guarda o nome dos fones e caixas de som que você conectou.</string>
+    <string name="privacy_not_title">O que ele não faz</string>
+    <string name="privacy_not_body">Não grava áudio, não sabe qual app ou música está tocando e não usa a internet.</string>
+    <string name="privacy_where_title">Onde ficam os dados</string>
+    <string name="privacy_where_body">Só neste celular, sem nuvem e sem backup do Google. Se você passar os apps para um celular novo, o histórico vai junto.</string>
+    <string name="privacy_control_title">Você no controle</string>
+    <string name="privacy_control_body">Pause quando quiser e apague tudo em Ajustes › Excluir todos os dados.</string>
+    <string name="privacy_full_policy">Ler a política completa</string>
+    <string name="privacy_updated">Atualizada em outubro de 2026</string>
+
+    <!-- Primeiro uso -->
+    <string name="welcome_title">Quanto tempo você passa de fone?</string>
+    <string name="welcome_body">O Plugado mede sozinho o tempo e o volume do que você ouve no fone, todos os dias.</string>
+    <string name="welcome_point_time">Tempo de fone por dia e por semana</string>
+    <string name="welcome_point_volume">Volume do sistema em cada trecho</string>
+    <string name="welcome_point_private">Tudo fica só no seu celular</string>
+    <string name="welcome_start">Começar</string>
+    <string name="welcome_footer">Não gravamos áudio e não sabemos o que você ouve.</string>
+    <string name="setup_title">Antes de começar</string>
+    <string name="setup_body">Dois ajustes para o Plugado contar o seu tempo sem falhas.</string>
+    <string name="setup_notifications_title">Notificações</string>
+    <string name="setup_notifications_body">Mostram quanto você já ouviu hoje e deixam pausar com um toque.</string>
+    <string name="setup_notifications_action">Permitir</string>
+    <string name="setup_notifications_done">Permitido</string>
+    <string name="setup_battery_title">Bateria sem restrições</string>
+    <string name="setup_battery_body">Alguns celulares fecham apps em segundo plano. Assim o Plugado não para de contar.</string>
+    <string name="setup_battery_action">Abrir ajustes</string>
+    <string name="setup_battery_done">Liberado</string>
+    <string name="setup_turn_on">Ligar monitoramento</string>
+    <string name="setup_not_now">Agora não</string>
+
+    <!-- Notificação do monitoramento -->
+    <string name="monitor_channel_name">Monitoramento</string>
+    <string name="monitor_notification_title">Monitorando o fone</string>
+    <string name="monitor_notification_text">Contando o tempo e o volume do que você ouve no fone.</string>
+    <string name="monitor_notification_pause">Pausar</string>
+    <string name="monitor_today_minutes">Hoje: %1$d min no fone</string>
+    <string name="monitor_today_hours">Hoje: %1$d h %2$02d min no fone</string>
+</resources>

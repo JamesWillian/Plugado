@@ -1,96 +1,26 @@
 package app.jammes.plugado
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import app.jammes.plugado.debuglog.DebugLogScreen
-import app.jammes.plugado.ui.theme.PlugadoTheme
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import app.jammes.plugado.monitor.MonitorSwitch
+import app.jammes.plugado.ui.PlugadoRoot
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
-class MainActivity : ComponentActivity() {
+/** AppCompatActivity, e não ComponentActivity, por causa da troca de idioma no Android 12. */
+class MainActivity : AppCompatActivity() {
+
+    private val switch: MonitorSwitch by inject()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            PlugadoTheme {
-                PlugadoApp()
-            }
-        }
-    }
-}
-
-@PreviewScreenSizes
-@Composable
-fun PlugadoApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.TODAY) }
-
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            painterResource(it.icon),
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
-                )
-            }
-        }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            when (currentDestination) {
-                // Provisório: a aba Today mostra o log até a tela de hoje existir.
-                AppDestinations.TODAY -> DebugLogScreen(Modifier.padding(innerPadding))
-                else -> Greeting(
-                    name = "Android",
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-        }
-    }
-}
-
-enum class AppDestinations(
-    val label: String,
-    val icon: Int,
-) {
-    TODAY("Today", R.drawable.ic_today),
-    HISTORY("History", R.drawable.ic_music_history),
-    DEVICES("Devices", R.drawable.ic_headphones),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    PlugadoTheme {
-        Greeting("Android")
+        // Se o monitoramento estava ligado mas o processo foi fechado (pelo fabricante ou pelo
+        // gerenciador de tarefas), ele volta quando o app abre.
+        if (savedInstanceState == null) lifecycleScope.launch { switch.restoreIfEnabled() }
+        setContent { PlugadoRoot() }
     }
 }

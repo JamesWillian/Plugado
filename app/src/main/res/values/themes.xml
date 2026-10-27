@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Plugado" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- AppCompat por causa da troca de idioma dentro do app no Android 12. -->
+    <style name="Theme.Plugado" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/plugado_background</item>
+    </style>
 </resources>

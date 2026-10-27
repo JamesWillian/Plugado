@@ -127,6 +127,58 @@ class ListeningRepositoryTest {
     }
 
     @Test
+    fun `trechos do dia vêm sem as saídas que não contam`() = runTest {
+        val speaker = Output(OutputType.BLUETOOTH, "JBL Flip 5")
+        open(segment("t1", "20:00:00"))
+        repository.execute(TrackerCommand.Close("t1", at("20:10:00")))
+        open(segment("t2", "21:00:00", output = speaker))
+        repository.execute(TrackerCommand.Close("t2", at("21:30:00")))
+        db.devices().setHeadphone(speaker.type, speaker.name, isHeadphone = false)
+
+        val spans = repository.countedSpansOn(day).first()
+
+        assertEquals(listOf(fone), spans.map { it.output })
+        assertEquals(Duration.ofMinutes(10), spans.single().duration)
+    }
+
+    @Test
+    fun `totais por dia somam o tempo e pesam o volume pelo tempo`() = runTest {
+        open(segment("t1", "20:00:00")) // volume 12 de 30 = 40%
+        repository.execute(TrackerCommand.Close("t1", at("20:10:00")))
+        open(Segment("t2", "s1", at("20:10:00"), day, AudioKind.MEDIA, fone, Volume(24, 30, -10f))) // 80%
+        repository.execute(TrackerCommand.Close("t2", at("20:40:00")))
+
+        val total = repository.dailyTotals(day.minusDays(6), day).first().single()
+
+        assertEquals(Duration.ofMinutes(40), total.listened)
+        assertEquals(70.0, total.volumePercent!!, 0.001) // (10 × 40 + 30 × 80) / 40
+    }
+
+    @Test
+    fun `cada dispositivo vem com o tempo total dele`() = runTest {
+        open(segment("t1", "20:00:00"))
+        repository.execute(TrackerCommand.Close("t1", at("20:25:00")))
+
+        val device = repository.devicesWithTotals.first().single()
+
+        assertEquals(fone, device.output)
+        assertTrue(device.counts)
+        assertEquals(Duration.ofMinutes(25), device.listened)
+    }
+
+    @Test
+    fun `excluir tudo apaga o histórico e os dispositivos`() = runTest {
+        open(segment("t1", "20:00:00"))
+        repository.execute(TrackerCommand.Close("t1", at("20:25:00")))
+
+        repository.deleteAll()
+
+        assertEquals(Duration.ZERO, listened())
+        assertTrue(repository.devicesWithTotals.first().isEmpty())
+        assertNull(repository.firstDay.first())
+    }
+
+    @Test
     fun `dB que não pôde ser lido é guardado como nulo`() = runTest {
         open(segment("t1", "20:00:00", volumeDb = Float.NaN))
 

@@ -27,7 +27,7 @@ object MonitorNotification {
             context, 0, MonitorService.stopIntent(context), PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_headphones)
+            .setSmallIcon(R.drawable.ic_stat_plugado)
             .setContentTitle(context.getString(R.string.monitor_notification_title))
             .setContentText(
                 minutesToday?.let { todayText(context, it) }

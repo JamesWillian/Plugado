@@ -38,6 +38,16 @@
                 android:value="Continuous, user-enabled monitoring of how long and at what system volume the user listens through headphones. Reads only playback state, audio routing and volume; never captures audio or identifies apps." />
         </service>
 
+        <!-- Guarda o idioma escolhido no app no Android 12 (do 13 em diante, o sistema guarda). -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
         <!-- Não exportado: o sistema entrega os broadcasts dele mesmo assim. -->
         <receiver
             android:name=".monitor.BootReceiver"

@@ -50,7 +50,47 @@ interface SegmentDao {
     )
     fun listenedMillis(day: LocalDate): Flow<Long>
 
-    /** Os trechos do dia, em ordem. Pra linha do tempo da tela de hoje. */
+    /** Os trechos do dia, em ordem. */
     @Query("SELECT * FROM segments WHERE day = :day ORDER BY startedAt")
     fun segmentsOn(day: LocalDate): Flow<List<SegmentEntity>>
+
+    /** Os trechos do dia que contam (sem as saídas marcadas como "não é fone"), em ordem. */
+    @Query(
+        """
+        SELECT s.* FROM segments s
+        WHERE s.day = :day AND NOT EXISTS (
+            SELECT 1 FROM devices d
+            WHERE d.type = s.outputType AND d.name = s.outputName AND d.isHeadphone = 0
+        )
+        ORDER BY s.startedAt
+        """,
+    )
+    fun countedSegmentsOn(day: LocalDate): Flow<List<SegmentEntity>>
+
+    /** Tempo ouvido e volume de cada dia com escuta entre [from] e [to], sem as saídas que não contam. */
+    @Query(
+        """
+        SELECT s.day AS day,
+               SUM(COALESCE(s.endedAt, s.lastSeenAt) - s.startedAt) AS listenedMillis,
+               SUM((COALESCE(s.endedAt, s.lastSeenAt) - s.startedAt) * 100.0 * s.volumeIndex / s.volumeMax)
+                   AS volumePercentMillis
+        FROM segments s
+        WHERE s.day BETWEEN :from AND :to AND NOT EXISTS (
+            SELECT 1 FROM devices d
+            WHERE d.type = s.outputType AND d.name = s.outputName AND d.isHeadphone = 0
+        )
+        GROUP BY s.day
+        """,
+    )
+    fun dailyTotals(from: LocalDate, to: LocalDate): Flow<List<DayTotalRow>>
+
+    /** O primeiro dia com algum registro. Antes dele, o app ainda não estava medindo. */
+    @Query("SELECT MIN(day) FROM segments")
+    fun firstDay(): Flow<LocalDate?>
+
+    @Query("DELETE FROM segments")
+    suspend fun deleteAll()
 }
+
+/** Uma linha do [SegmentDao.dailyTotals]. O volume vem multiplicado pelo tempo, pra média ponderada. */
+data class DayTotalRow(val day: LocalDate, val listenedMillis: Long, val volumePercentMillis: Double)

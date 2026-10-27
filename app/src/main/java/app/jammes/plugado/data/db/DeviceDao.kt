@@ -19,4 +19,27 @@ interface DeviceDao {
 
     @Query("SELECT * FROM devices WHERE isHeadphone = 0")
     fun notHeadphones(): Flow<List<DeviceEntity>>
+
+    /**
+     * Cada saída com o tempo total dela, da mais usada pra menos usada. A ordem não depende de
+     * contar ou não: assim a linha não pula de lugar quando o usuário mexe no interruptor.
+     */
+    @Query(
+        """
+        SELECT d.type AS type, d.name AS name, d.isHeadphone AS isHeadphone,
+               COALESCE((
+                   SELECT SUM(COALESCE(s.endedAt, s.lastSeenAt) - s.startedAt) FROM segments s
+                   WHERE s.outputType = d.type AND s.outputName = d.name
+               ), 0) AS listenedMillis
+        FROM devices d
+        ORDER BY listenedMillis DESC, d.name
+        """,
+    )
+    fun devicesWithTotals(): Flow<List<DeviceTotalRow>>
+
+    @Query("DELETE FROM devices")
+    suspend fun deleteAll()
 }
+
+/** Uma linha do [DeviceDao.devicesWithTotals]. */
+data class DeviceTotalRow(val type: OutputType, val name: String, val isHeadphone: Boolean, val listenedMillis: Long)

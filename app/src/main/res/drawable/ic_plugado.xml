@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O fone do Plugado: o ícone do app sem o fundo. Os 72 x 72 são a parte visível do ícone, com o
+  mesmo respiro em volta do fone, então ele serve em qualquer fundo do mesmo tamanho (um círculo,
+  um quadrado, branco ou preto) e sai igual ao ícone, sem distorcer. É a camada da frente do ícone
+  (via ic_launcher_foreground) e o logo da boas-vindas (PlugadoLogo). É branco; pra outra cor, use tint.
+
+  Desenho na grade de 24: arco de raio 8 que desce reto até embaixo, conchas de 4 x 7 presas por
+  dentro, traço de 2. Ampliado 2,1x: o fone ocupa 37,8 x 39,9 de 72. Centrado na horizontal e,
+  na vertical, 2,2 acima do centro (centro ótico): num recorte redondo, o topo e os cantos de baixo
+  ficam com quase o mesmo respiro até a borda (13,9 e 12,7).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="72"
+    android:viewportHeight="72">
+    <group
+        android:scaleX="2.1"
+        android:scaleY="2.1"
+        android:translateX="10.8"
+        android:translateY="9.65">
+        <path
+            android:pathData="M4,13H6.5a1.5,1.5 0,0 1,1.5 1.5V18.5a1.5,1.5 0,0 1,-1.5 1.5H6a2,2 0,0 1,-2 -2V11
+                A8,8 0,0 1,20 11V18a2,2 0,0 1,-2 2h-0.5a1.5,1.5 0,0 1,-1.5 -1.5V14.5a1.5,1.5 0,0 1,1.5 -1.5H20"
+            android:strokeColor="@color/launcher_glyph"
+            android:strokeWidth="2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

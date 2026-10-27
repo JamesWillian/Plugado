@@ -29,7 +29,8 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 - [x] `monitor/` (fase 3): `ListeningMonitor` (com 4 testes), `MonitorService` (FGS `specialUse`), `MonitorNotification`, Koin (`di/`) e a tela de log só no debug (hoje na aba Today do BottomNavigation). No emulador (API 37): o FGS sobe como `specialUse` mesmo com a notificação negada, o processo fica em `FOREGROUND_SERVICE`, uma mudança de volume com o app em background vira snapshot ~0,45 s depois, e desligar funciona. Validado pelo James no aparelho real, com música no fone e a tela desligada.
 - [x] Testes de campo (fase 4): **pulados por decisão do James** (20/out). Ele não tem como fazer a maioria. O caso principal (música no fone BT) está validado; o resto virou a lista "Ainda não testado", pra observar no uso do dia a dia e corrigir pelo log quando algum número parecer errado.
 - [x] `data/` (fase 5): Room (`segments`, `devices`), `ListeningRepository` (é o `CommandSink`), recuperação dos trechos órfãos (regra no domínio, `OrphanRecovery.kt`), DataStore (`MonitorSettings`), `MonitorSwitch`, `BootReceiver` e a notificação "Hoje: X min no fone". Testes: 3 no domínio e 8 instrumentados no emulador (`./gradlew :app:connectedDebugAndroidTest`). No emulador (API 37): a notificação mostra "Hoje: 0 min no fone", reinstalar o app com o monitoramento ligado faz ele voltar sozinho (`MY_PACKAGE_REPLACED`), e o "Pausar" desliga e continua desligado depois de reinstalar. Falta ver o total subir no aparelho real, ouvindo música.
-- [ ] UI, onboarding e publicação.
+- [x] UI (fase 6, 21/out): Hoje, Histórico (7 e 30 dias), Dispositivos, Ajustes, Privacidade e o primeiro uso, em Compose, em português, inglês e espanhol, com tema Claro/Escuro/Sistema. Conferido no emulador (API 37) com dados de exemplo; os prints estão em `docs/prints/`. Falta o James usar no celular dele.
+- [ ] Endurecimento e publicação na Play Store.
 
 ## Próximos passos
 
@@ -37,7 +38,41 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
    - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
    - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
 2. Investigar o vídeo do Facebook com som, que não contou (veja "Achados do uso"). Precisa de dados crus no log de debug: `isMusicActive`, `mode`, saídas e players ativos em cada gatilho, mesmo quando o snapshot não muda.
-3. UI: tela de hoje (total, linha do tempo, volume médio), histórico com gráfico (Vico), tela de dispositivos e onboarding (notificação e bateria). Depois, endurecimento e Play Store.
+3. Endurecimento e Play Store: página da política de privacidade (e preencher `PRIVACY_POLICY_URL`), textos e vídeo da declaração do FGS `specialUse`, Data safety, conferir que o app segue sem a permissão `INTERNET`, testes em outras marcas e no Android 17, troca de fuso (o `zone` do tracker é fixo desde a criação).
+
+Os protótipos aprovados estão no canvas "Protótipos do Plugado" (https://claude.ai/artifact/VzZMj63xRzMnkXpGZ9V69s). As telas em Compose seguem eles; mudança visual nova passa por lá (ou pelo James) antes.
+
+### Interface (decisões de 21/out)
+
+- Inspiração Uber: preto e branco puros, números grandes em negrito, muito espaço e cantos arredondados. Cada tela tem uma ação principal (botão invertido). Única cor: vermelho só pra ação destrutiva (excluir dados).
+- Fonte: Inter (licença OFL, dá pra embutir no app), pesos 400 a 700, espaçamento negativo nos tamanhos grandes. Números em coluna usam algarismos tabulares; números grandes, não.
+- Tema: Claro, Escuro ou Sistema (escolha nos Ajustes; o padrão é Sistema).
+- Barra de baixo com 4 abas: Hoje, Histórico, Dispositivos e Ajustes ("Ajustes" e não "Configurações", porque cabe melhor em 4 abas; em inglês "Settings", em espanhol "Ajustes"). Os rótulos atuais em inglês no `AppDestinations` mudam.
+- O app é multi-idioma: português (Brasil), inglês e espanhol, mais "Padrão do sistema". Cada idioma aparece com o nome no próprio idioma (English, Español, Português (Brasil)).
+- Ajustes: Tema, Idioma, Monitorar o fone (interruptor), Bateria sem restrições (abre os ajustes do celular), Política de privacidade (tela própria com resumo e link pra política completa) e Excluir todos os dados (confirmação; apaga histórico e dispositivos, mantém as preferências).
+- A tela de Privacidade afirma que o app "não usa a internet". Isso só continua verdade se o app seguir sem a permissão `INTERNET`; confira o manifest final antes de publicar.
+
+Como ficou no código (fase 6):
+- Volume médio = média ponderada pelo tempo do **% do volume do sistema** (índice ÷ máximo), decidido na construção em 21/out porque a tela mostra porcentagem. A média energética em dB ficou de fora (o dB do sistema não é o volume no ouvido). As contas ficam no `:domain/stats` (`ListeningStats.kt`, com testes).
+- Média por dia: dias sem escuta contam como zero, mas só a partir do primeiro dia com registro (`firstDay`). A comparação da tela Hoje é contra a média dos 7 dias anteriores; no primeiro dia de uso ela não aparece.
+- Sessão aberta: com alguém ouvindo agora (`MonitorStatus.listening`), o total vai até agora; senão, para no último heartbeat. A tela se atualiza a cada 15 s.
+- Cada tela tem um ViewModel (Koin `viewModelOf`, `koinViewModel()`) com o estado montado por uma função pura (`buildTodayState`, `buildHistoryState`), testada na JVM (`ScreenStateTest`).
+- Idioma: `MainActivity` é `AppCompatActivity` e o idioma usa `AppCompatDelegate.setApplicationLocales` (no 13+ quem guarda é o sistema; no 12, o `AppLocalesMetadataHolderService` do manifest). O `locales_config` é gerado pelo AGP (`generateLocaleConfig`) a partir de `values/` (inglês, o padrão, via `res/resources.properties`), `values-pt/` e `values-es/`.
+- Formatos: durações em "2 h 14 min" (iguais nos 3 idiomas), datas e intervalos pelo idioma (ICU `DateIntervalFormat`), horário em 24 h ou AM/PM conforme o celular e o idioma.
+- O tema escolhido fica no DataStore `app` (`AppPreferences`), junto com "o primeiro uso já foi visto". As barras do sistema seguem o tema do app, não o do celular.
+- Ao abrir, a `MainActivity` religa o monitoramento se ele estava ligado e o processo tinha sido fechado.
+- Fonte: os 4 pesos da Inter em `res/font/` (TTF do Google Fonts) e a licença em `assets/licenses/inter_OFL.txt`. Ícones: `PlugadoIcons`, desenhados a partir dos mesmos caminhos SVG do protótipo.
+- Primeiro uso: a nota "seus dados ficam só neste celular" fica só na boas-vindas. No "Antes de começar" ela saiu (pedido do James em 21/out, pra tela caber sem rolar).
+- Ícone do app (escolhido pelo James em 21/out, opção "Contorno forte" do canvas): fone minimalista em linha, com o arco descendo reto por fora e as conchas presas por dentro (um "b" e um "d"). Fixo no preto: fundo preto e fone branco (cores `launcher_background` e `launcher_glyph`), por causa do achado abaixo.
+  - O desenho fica num lugar só, o `drawable/ic_plugado.xml`: 72 x 72 é a área visível do ícone, já com o respiro dele. Grade de 24 ampliada 2,1x, traço 2, ocupando 52,5% da largura e 55% da altura. Ele é branco; pra outra cor (preto no fundo branco, por exemplo), use tint.
+  - Posição: centrado na horizontal e 2,2 (de 72) acima do centro na vertical, de propósito (centro ótico). No círculo, os cantos de baixo do fone chegam mais perto da borda que o topo redondo; com a subida, os dois ficam com quase o mesmo respiro (13,9 e 12,7). Pedido do James em 21/out: na primeira versão (2,5x, no centro exato) os cantos de baixo pareciam encostar na borda e sobrava espaço em cima. O teste de tamanhos e posições nos recortes de círculo, squircle e Play está no script do scratchpad da conversa (não versionado).
+  - O `ic_launcher_foreground.xml` é um `<inset>` de 1/6 em volta do `ic_plugado` (vira os 108 dp do ícone adaptativo) e também é a camada monocromática. Ícone adaptativo só em XML (`mipmap-anydpi`; com minSdk 31 não precisa dos PNGs por densidade).
+  - Pra repetir o ícone em outro lugar sem distorcer, desenhe o `ic_plugado` do mesmo tamanho do fundo (quadrado). O logo da boas-vindas é o `PlugadoLogo` (`ui/common/Components.kt`): círculo invertido de 32 dp com o fone por cima.
+  - O PNG de 512 px pra loja é o `docs/loja/icone-512.png`, desenhado por script com a mesma geometria.
+  - Medido no emulador (pixels dos prints): no ícone da gaveta (círculo de 159 px), respiro de 30 px no topo e 28 px nos cantos de baixo; no logo (84 px), 16 e 15 px, nos dois temas. Na horizontal, centrado (±0,5 px).
+  - O mesmo fone aparece em todo o app: `PlugadoIcons.Headphones` (abas, cartões, Privacidade), na grade de 24 com o traço de 1,75 da interface e centrado (o desenho desce 0,5); e o ícone pequeno da notificação, `drawable/ic_stat_plugado.xml` (grade de 24, traço 2). O `ic_headphones` do Material foi apagado.
+  - Achado (21/out, emulador API 37): a gaveta de notificações mostra o ícone do app, e o sistema guarda o ícone antigo até reiniciar. Depois de atualizar o app, a notificação ainda mostrava o robô verde do modelo; depois de reiniciar o celular, o ícone novo. No celular do James pode acontecer o mesmo.
+- Achado do ícone (21/out, emulador API 37, Pixel Launcher): o launcher guarda o ícone e não troca quando o celular muda de tema. A versão do `values-night` só vale na hora da instalação ou da atualização (instalado no escuro, o ícone continua preto quando o celular volta pro claro). A tela de informações do app, que não guarda o ícone, troca certo.
 
 ## Arquitetura
 
@@ -45,7 +80,7 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 :domain   Kotlin puro, nenhum import android.*
   model/     AudioSnapshot, AudioKind, Output, OutputType, Volume, Segment   [pronto]
   tracker/   SegmentTracker, TrackerConfig, TrackerCommand, OrphanRecovery   [pronto]
-  stats/     DailyStats, média de volume                                     [planejado]
+  stats/     ListeningStats: Span, sessões, DayTotal, médias                 [pronto]
 :app
   audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource,
              SnapshotRules, AudioStateReader, AudioStateAggregator              [pronto]
@@ -53,11 +88,13 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
              MonitorNotification, MonitorSwitch, BootReceiver                [pronto]
   data/      db/ (SegmentEntity, DeviceEntity, DAOs, Converters, AppDatabase),
              prefs/MonitorSettings, ListeningRepository                       [pronto]
-  ui/        today/, history/, devices/, onboarding/
+  ui/        PlugadoApp (raiz e 4 abas), AppViewModel, theme/ (cores, Inter,
+             ícones), common/ (componentes, formatos, atalhos do sistema),
+             today/, history/, devices/, settings/, privacy/, onboarding/    [pronto]
   di/        AppModule; variantModule existe em src/debug e em src/release   [pronto]
   util/      ticker
-  debuglog/  (src/debug) DebugLog, DebugLogScreen; (src/release) DebugLogScreen,
-             um aviso no lugar do log                                       [provisório]
+  debuglog/  (src/debug) DebugLog (vai pro logcat) e DebugLogScreen, que ficou
+             sem lugar na tela desde a fase 6 (decidir com o James)
 ```
 
 Fluxo: fontes → agregador (`AudioSnapshot`) → `SegmentTracker` (`TrackerCommand`) → serviço grava no Room → notificação e UI leem do Room via `Flow`.
@@ -180,9 +217,9 @@ Outros achados:
 
 ## Decisões em aberto
 
-- Volume médio: média simples ponderada pelo tempo (boa pra UI) ou média energética, `10·log10(Σ t·10^(dB/10) / Σ t)` (melhor pra falar de exposição).
 - Intervalos: a releitura (1,5 s) e o polling (5 s) estão no `AggregatorConfig`; o heartbeat grava a cada 30 s. Revisar se o uso mostrar algum problema.
 - Rota manual pro alto-falante com o fone conectado conta como fone. É um caso raro e, por enquanto, aceito.
+- Trocar o ícone do app pelo tema ficou de fora: exigiria `activity-alias`, e no Xiaomi o ícone pode mudar de lugar a cada troca.
 
 ## Regras do produto e da Play Store
 
@@ -196,7 +233,9 @@ Outros achados:
 ## Comandos
 
 - `./gradlew :domain:test`: testes do domínio.
-- `./gradlew :app:testDebugUnitTest`: testes do `:app` na JVM (regras e agregador).
+- `./gradlew :app:testDebugUnitTest`: testes do `:app` na JVM (regras, agregador, monitor e o estado das telas).
+- `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest`: testes do banco **só no emulador** (veja o aviso em Configuração).
+- `adb -s emulator-5554 shell cmd locale set-app-locales app.jammes.plugado --locales pt-BR`: muda o idioma do app sem passar pela tela (no Android 13+). O `pm clear` apaga essa escolha.
 - `./gradlew :app:installDebug`: instala no aparelho.
 - `adb logcat -s Plugado`: log do monitor (build de debug).
 - `adb shell cmd audio set-volume 3 <n>`: muda o volume de mídia, pra testar a fonte de volume. O `cmd media_session volume --set` e a tecla de volume sem mídia tocando **não** mudam o volume de mídia no emulador.
@@ -209,6 +248,7 @@ Outros achados:
 - No `:app`, os testes usam `kotlin("test-junit")` (JUnit 4) e `kotlinx-coroutines-test`. Com o AGP 9, o `kotlin("test")` sozinho não resolve o `kotlin.test.Test`.
 - Nos testes instrumentados (`androidTest`), o nome do teste com crases pode ter espaço (minSdk ≥ 30), mas **não pode ter vírgula**: o D8 recusa ("cannot be represented in dex format"). Nos testes da JVM, pode.
 - O `./gradlew :app:installDebug` instala em **todos** os aparelhos conectados (o celular do James costuma estar conectado por adb sem fio). Pra mirar um só, use `adb -s <serial> install -r app/build/outputs/apk/debug/app-debug.apk`.
+- ⚠️ O `connectedDebugAndroidTest` também roda em **todos** os aparelhos conectados e **desinstala o app no fim**, o que apaga o histórico de escuta. Nunca rode com o celular do James conectado: confira `adb devices` antes ou use `ANDROID_SERIAL=emulator-5554`.
 
 ## Referências
 

@@ -34,6 +34,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // Gera o locales_config a partir das pastas values-xx (inglês é o padrão: res/resources.properties).
+    androidResources {
+        generateLocaleConfig = true
+    }
 }
 
 // O Room grava o esquema de cada versão do banco aqui (vai pro git; serve pras migrações).
@@ -51,6 +55,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.appcompat)
     implementation(libs.kotlinx.coroutines.android)
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
