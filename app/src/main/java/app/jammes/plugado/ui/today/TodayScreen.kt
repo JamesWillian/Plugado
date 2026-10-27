@@ -24,10 +24,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -421,8 +423,8 @@ private fun SessionDetails(session: SessionSummary, live: Boolean, zone: ZoneId,
         Row(Modifier.padding(top = 16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             SessionStat(formatPercent(session.peakPercent, locale), stringResource(R.string.session_peak))
             SessionStat(atPeak, stringResource(R.string.session_time_at_peak))
-            // O nome do fone fica com o espaço que sobra, em até duas linhas
-            SessionStat(deviceName(session.output), stringResource(R.string.session_device), Modifier.weight(1f), maxLines = 2)
+            // O nome do fone fica com o espaço que sobra, numa linha só: a fonte diminui até caber
+            SessionStat(deviceName(session.output), stringResource(R.string.session_device), Modifier.weight(1f), autoSize = DeviceNameSize)
         }
     }
 }
@@ -520,15 +522,19 @@ private fun TimeAxis(session: SessionSummary, live: Boolean, zone: ZoneId, time:
 }
 
 @Composable
-private fun SessionStat(value: String, label: String, modifier: Modifier = Modifier, maxLines: Int = 1) {
+private fun SessionStat(value: String, label: String, modifier: Modifier = Modifier, autoSize: TextAutoSize? = null) {
     val colors = PlugadoTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // A base do texto fica sempre no mesmo lugar, e a altura também: com a fonte menor, o nome do
+        // fone continua alinhado com os números do lado, e a legenda dele com as outras
         Text(
             value,
-            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = TabularNumbers),
+            Modifier.paddingFromBaseline(top = 21.sp, bottom = 5.sp),
             color = colors.text,
-            maxLines = maxLines,
+            autoSize = autoSize,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = TabularNumbers),
         )
         Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal), color = colors.muted)
     }
@@ -539,6 +545,9 @@ private val ChartTop = 12.dp        // espaço pro valor do pico em cima da linh
 private val ChartPlot = 136.dp
 private val ChartBottom = 8.dp      // metade do rótulo de 0%, que fica centrado na linha
 private val ChartAxisWidth = 40.dp  // os rótulos de % à direita
+
+// O nome do fone vai de 20 sp (o tamanho dos números ao lado) até 12 sp. Se nem assim couber, corta com "…".
+private val DeviceNameSize = TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 20.sp, stepSize = 0.5.sp)
 
 /**
  * Alarga o elemento [inset] pros dois lados sem mudar o espaço que ele ocupa: o cartão da sessão
