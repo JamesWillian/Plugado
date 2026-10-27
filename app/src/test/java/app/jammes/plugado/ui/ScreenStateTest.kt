@@ -39,6 +39,16 @@ class ScreenStateTest {
     }
 
     @Test
+    fun `com alguém ouvindo, o gráfico da sessão aberta também vai até agora`() {
+        val state = buildTodayState(
+            today, zone, now = at("21:40:00"), spans = listOf(openSpan("21:00:00", "21:30:00")),
+            previousDays = emptyList(), firstDay = today, enabled = true, listening = true,
+        )
+
+        assertEquals(at("21:40:00"), state.sessions.single().steps.last().end)
+    }
+
+    @Test
     fun `sem ninguém ouvindo, a sessão aberta para no último heartbeat`() {
         // Pausa curta, ou o processo morreu: não dá pra contar até agora
         val state = buildTodayState(

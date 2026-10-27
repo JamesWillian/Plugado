@@ -47,6 +47,33 @@ class ListeningStatsTest {
     }
 
     @Test
+    fun `o gráfico da sessão tem um degrau por trecho, em ordem`() {
+        // O volume subiu de 50% pra 60% às 20:10
+        val spans = listOf(span("s1", "20:00:00", "20:10:00"), span("s1", "20:10:00", "20:40:00", volume = vol18))
+
+        val session = spans.toSessions().single()
+
+        assertEquals("s1", session.id)
+        assertEquals(listOf(at("20:00:00"), at("20:10:00")), session.steps.map { it.start })
+        assertEquals(listOf(50.0, 60.0), session.steps.map { it.percent })
+    }
+
+    @Test
+    fun `o pico é o volume mais alto, com o tempo que ficou nele`() {
+        // 10 min em 50%, 30 min em 60% e mais 5 min em 50%
+        val spans = listOf(
+            span("s1", "20:00:00", "20:10:00"),
+            span("s1", "20:10:00", "20:40:00", volume = vol18),
+            span("s1", "20:40:00", "20:45:00"),
+        )
+
+        val session = spans.toSessions().single()
+
+        assertEquals(60, session.peakPercent)
+        assertEquals(Duration.ofMinutes(30), session.timeAtPeak)
+    }
+
+    @Test
     fun `sessões vêm da mais recente pra mais antiga`() {
         val spans = listOf(span("manhã", "07:42:00", "08:16:00"), span("noite", "21:23:00", "21:40:00"))
 

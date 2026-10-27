@@ -85,9 +85,10 @@ fun IconBadge(
     size: Dp = 40.dp,
     iconSize: Dp = 20.dp,
     tint: Color = PlugadoTheme.colors.text,
+    background: Color = PlugadoTheme.colors.chip,
 ) {
     Box(
-        modifier.size(size).clip(CircleShape).background(PlugadoTheme.colors.chip),
+        modifier.size(size).clip(CircleShape).background(background),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(iconSize), tint = tint)

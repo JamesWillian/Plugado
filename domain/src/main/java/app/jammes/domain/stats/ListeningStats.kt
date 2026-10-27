@@ -20,14 +20,23 @@ data class Span(
     val duration: Duration get() = Duration.between(start, end)
 }
 
+/** Um degrau do gráfico de volume: um trecho da sessão, com o volume em % do máximo. */
+data class VolumeStep(val start: Instant, val end: Instant, val percent: Double) {
+    val duration: Duration get() = Duration.between(start, end)
+}
+
 /** Uma sessão de escuta: os trechos dela somados. */
 data class SessionSummary(
+    val id: String,
     val start: Instant,
     val end: Instant,
     val listened: Duration,
-    val output: Output,     // a saída onde a sessão passou mais tempo
-    val volumePercent: Int, // ponderado pelo tempo
+    val output: Output,          // a saída onde a sessão passou mais tempo
+    val volumePercent: Int,      // ponderado pelo tempo
     val open: Boolean,
+    val steps: List<VolumeStep>, // um degrau por trecho, em ordem
+    val peakPercent: Int,        // o volume mais alto, arredondado como aparece na tela
+    val timeAtPeak: Duration,    // o tempo somado dos trechos nesse volume
 )
 
 /** O total de um dia. `volumePercent` é null nos dias sem escuta. */
@@ -38,15 +47,22 @@ val Volume.percent: Double get() = index * 100.0 / max
 
 /** Agrupa os trechos por sessão, da mais recente pra mais antiga. */
 fun List<Span>.toSessions(): List<SessionSummary> =
-    groupBy { it.sessionId }.values
-        .map { spans ->
+    groupBy { it.sessionId }
+        .map { (id, spans) ->
+            val steps = spans.sortedBy { it.start }.map { VolumeStep(it.start, it.end, it.volume.percent) }
+            // Compara o volume arredondado: dois trechos que aparecem como "73%" contam juntos no pico
+            val peak = steps.maxOf { it.percent.roundToInt() }
             SessionSummary(
+                id = id,
                 start = spans.minOf { it.start },
                 end = spans.maxOf { it.end },
                 listened = spans.fold(Duration.ZERO) { total, span -> total + span.duration },
                 output = spans.groupBy { it.output }.maxBy { (_, same) -> same.sumOf { it.duration.toMillis() } }.key,
                 volumePercent = spans.averageVolumePercent() ?: 0,
                 open = spans.any { it.open },
+                steps = steps,
+                peakPercent = peak,
+                timeAtPeak = steps.filter { it.percent.roundToInt() == peak }.fold(Duration.ZERO) { total, step -> total + step.duration },
             )
         }
         .sortedByDescending { it.start }

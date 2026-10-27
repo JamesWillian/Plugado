@@ -34,6 +34,7 @@ object PlugadoIcons {
     val ArrowDown = icon("arrow_down", "M12 5v14", "M6 13l6 6 6-6", strokeWidth = 2f)
     val ChevronRight = icon("chevron_right", "M9 5l7 7-7 7", strokeWidth = 2f)
     val ChevronLeft = icon("chevron_left", "M15 5l-7 7 7 7", strokeWidth = 2f)
+    val ChevronDown = icon("chevron_down", "M5 9l7 7 7-7", strokeWidth = 2f)
     val External = icon(
         "external", "M14 4h6v6", "M20 4l-9 9", "M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
     )

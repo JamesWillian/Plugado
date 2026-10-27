@@ -5,6 +5,7 @@
     <string name="language_en" translatable="false">English</string>
     <string name="language_es" translatable="false">Español</string>
     <string name="time_range" translatable="false">%1$s – %2$s</string>
+    <string name="duration_under_a_minute" translatable="false">&lt; 1 min</string>
 
     <!-- Navegação -->
     <string name="nav_today">Today</string>
@@ -36,7 +37,14 @@
     <string name="stat_longest">Longest</string>
     <string name="today_volume_note">Your phone\'s system volume. How loud it is in your ears also depends on your headphones and the app.</string>
     <string name="session_now">now</string>
-    <string name="session_detail">%1$s · volume %2$s</string>
+    <string name="session_average_volume">Average volume %1$s</string>
+    <string name="session_expand">Show details</string>
+    <string name="session_collapse">Hide details</string>
+    <string name="session_peak">Peak</string>
+    <string name="session_time_at_peak">Time at peak</string>
+    <string name="session_device">Device</string>
+    <string name="session_chart_a11y">Volume between %1$s and %2$s</string>
+    <string name="session_chart_steady_a11y">Volume steady at %1$s</string>
     <string name="today_empty_title">Nothing yet</string>
     <string name="today_empty_body">Connect your headphones and press play in any app. The time starts counting on its own.</string>
 

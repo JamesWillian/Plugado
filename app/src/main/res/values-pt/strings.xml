@@ -29,7 +29,14 @@
     <string name="stat_longest">Mais longa</string>
     <string name="today_volume_note">Volume do sistema do celular. O volume no ouvido também depende do fone e do app.</string>
     <string name="session_now">agora</string>
-    <string name="session_detail">%1$s · volume %2$s</string>
+    <string name="session_average_volume">Volume médio %1$s</string>
+    <string name="session_expand">Mostrar detalhes</string>
+    <string name="session_collapse">Esconder detalhes</string>
+    <string name="session_peak">Pico</string>
+    <string name="session_time_at_peak">Tempo no pico</string>
+    <string name="session_device">Dispositivo</string>
+    <string name="session_chart_a11y">Volume entre %1$s e %2$s</string>
+    <string name="session_chart_steady_a11y">Volume constante em %1$s</string>
     <string name="today_empty_title">Nada por enquanto</string>
     <string name="today_empty_body">Conecte o fone e dê play em qualquer app. O tempo começa a contar sozinho.</string>
 

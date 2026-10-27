@@ -30,6 +30,7 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 - [x] Testes de campo (fase 4): **pulados por decisão do James** (20/out). Ele não tem como fazer a maioria. O caso principal (música no fone BT) está validado; o resto virou a lista "Ainda não testado", pra observar no uso do dia a dia e corrigir pelo log quando algum número parecer errado.
 - [x] `data/` (fase 5): Room (`segments`, `devices`), `ListeningRepository` (é o `CommandSink`), recuperação dos trechos órfãos (regra no domínio, `OrphanRecovery.kt`), DataStore (`MonitorSettings`), `MonitorSwitch`, `BootReceiver` e a notificação "Hoje: X min no fone". Testes: 3 no domínio e 8 instrumentados no emulador (`./gradlew :app:connectedDebugAndroidTest`). No emulador (API 37): a notificação mostra "Hoje: 0 min no fone", reinstalar o app com o monitoramento ligado faz ele voltar sozinho (`MY_PACKAGE_REPLACED`), e o "Pausar" desliga e continua desligado depois de reinstalar. Falta ver o total subir no aparelho real, ouvindo música.
 - [x] UI (fase 6, 21/out): Hoje, Histórico (7 e 30 dias), Dispositivos, Ajustes, Privacidade e o primeiro uso, em Compose, em português, inglês e espanhol, com tema Claro/Escuro/Sistema. Conferido no emulador (API 37) com dados de exemplo; os prints estão em `docs/prints/`. Falta o James usar no celular dele.
+- [x] Sessão aberta na tela Hoje (27/out): um toque na sessão mostra o gráfico do volume, o pico, o tempo no pico e o fone (veja "Sessão aberta" mais abaixo). Conferido no emulador (API 37) com dados de exemplo, nos dois temas e nos 3 idiomas; o print é o `docs/prints/4-sessao-aberta.png`. Falta ver no celular do James, com sessões de verdade.
 - [ ] Endurecimento e publicação na Play Store.
 
 ## Próximos passos
@@ -37,6 +38,7 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 1. Exercícios reservados pro James (não escreva por ele, a menos que ele peça):
    - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
    - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
+   - `ListeningStatsTest`, "tempo no pico soma os trechos separados": 60% por 10 min, 50% por 5 min e 60% de novo por 15 min → `peakPercent` 60 e `timeAtPeak` 25 min.
 2. Investigar o vídeo do Facebook com som, que não contou (veja "Achados do uso"). Precisa de dados crus no log de debug: `isMusicActive`, `mode`, saídas e players ativos em cada gatilho, mesmo quando o snapshot não muda.
 3. Endurecimento e Play Store: página da política de privacidade (e preencher `PRIVACY_POLICY_URL`), textos e vídeo da declaração do FGS `specialUse`, Data safety, conferir que o app segue sem a permissão `INTERNET`, testes em outras marcas e no Android 17, troca de fuso (o `zone` do tracker é fixo desde a criação).
 
@@ -74,13 +76,23 @@ Como ficou no código (fase 6):
   - Achado (21/out, emulador API 37): a gaveta de notificações mostra o ícone do app, e o sistema guarda o ícone antigo até reiniciar. Depois de atualizar o app, a notificação ainda mostrava o robô verde do modelo; depois de reiniciar o celular, o ícone novo. No celular do James pode acontecer o mesmo.
 - Achado do ícone (21/out, emulador API 37, Pixel Launcher): o launcher guarda o ícone e não troca quando o celular muda de tema. A versão do `values-night` só vale na hora da instalação ou da atualização (instalado no escuro, o ícone continua preto quando o celular volta pro claro). A tela de informações do app, que não guarda o ícone, troca certo.
 
+### Sessão aberta (decisões de 27/out)
+
+- Um toque numa sessão da lista de Hoje abre um cartão embaixo dela, com o gráfico do volume e os detalhes. Outro toque fecha. Fica uma aberta por vez. A tela guarda o id da sessão (`rememberSaveable`), então ela continua aberta quando a tela se atualiza e quando o tema ou o idioma mudam.
+- O subtítulo do item ficou só "Volume médio X%". O fone saiu dali e foi pros detalhes (pedido do James).
+- Gráfico (`VolumeChart`, desenhado num Canvas): linha em degraus, um por trecho, porque o volume muda aos pulos. A escala vai sempre de 0 a 100%, pra mesma altura ser o mesmo volume em qualquer sessão. O ponto do pico fica no meio do trecho mais longo nesse volume. Na sessão ao vivo, outro ponto marca o "agora", e a linha cresce a cada 15 s. Numa pausa curta entre dois trechos, a linha segue no volume anterior.
+- Detalhes: Pico; Tempo no pico, que soma os trechos com o mesmo % arredondado (abaixo de 1 min aparece "< 1 min"); e Dispositivo, a saída onde a sessão passou mais tempo (sem nome, mostra o tipo, como na tela Dispositivos). Os dois números ocupam só o espaço que precisam, e o nome do fone fica com o resto, em até 2 linhas.
+- No domínio, o `SessionSummary` ganhou `id`, `steps` (`VolumeStep`), `peakPercent` e `timeAtPeak`, montados no `toSessions()`. O banco não mudou.
+- Ficaram de fora: "ajustes de volume" (trocado pelo dispositivo), dB e pausas (uma pausa de mais de 5 s já encerra a sessão). Ideias pra depois, mostradas só quando acontecerem: troca de fone na mesma sessão, marca de chamada e "começou ontem" (a sessão que passou da meia-noite aparece hoje começando às 00:00).
+- No canvas: "Hoje · sessão aberta" (dá pra tocar nas sessões no modo Play), "Hoje · sessão ao vivo aberta" e "Hoje · sessão aberta, claro". A lista do "Hoje" também ganhou a setinha e o subtítulo novo.
+
 ## Arquitetura
 
 ```
 :domain   Kotlin puro, nenhum import android.*
   model/     AudioSnapshot, AudioKind, Output, OutputType, Volume, Segment   [pronto]
   tracker/   SegmentTracker, TrackerConfig, TrackerCommand, OrphanRecovery   [pronto]
-  stats/     ListeningStats: Span, sessões, DayTotal, médias                 [pronto]
+  stats/     ListeningStats: Span, sessões (degraus e pico), DayTotal, médias [pronto]
 :app
   audio/     PlaybackSource, AudioModeSource, OutputDeviceSource, VolumeSource,
              SnapshotRules, AudioStateReader, AudioStateAggregator              [pronto]
@@ -238,6 +250,8 @@ Outros achados:
 - `adb -s emulator-5554 shell cmd locale set-app-locales app.jammes.plugado --locales pt-BR`: muda o idioma do app sem passar pela tela (no Android 13+). O `pm clear` apaga essa escolha.
 - `./gradlew :app:installDebug`: instala no aparelho.
 - `adb logcat -s Plugado`: log do monitor (build de debug).
+- O `adb` fica em `~/Library/Android/sdk/platform-tools/adb`, que pode não estar no PATH do terminal.
+- Dados de exemplo no emulador (pros prints), **nunca no celular do James**: com o app parado (`am force-stop`), copie o `databases/plugado.db` e o `-wal` com `adb exec-out run-as app.jammes.plugado cat <arquivo>`, insira os trechos no SQLite, rode `PRAGMA wal_checkpoint(TRUNCATE)` e devolva o `.db` por `/data/local/tmp` com `run-as app.jammes.plugado cp`, apagando o `-wal` e o `-shm` do aparelho.
 - `adb shell cmd audio set-volume 3 <n>`: muda o volume de mídia, pra testar a fonte de volume. O `cmd media_session volume --set` e a tecla de volume sem mídia tocando **não** mudam o volume de mídia no emulador.
 
 ## Configuração

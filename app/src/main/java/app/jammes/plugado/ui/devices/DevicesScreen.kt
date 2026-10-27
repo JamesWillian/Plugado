@@ -38,6 +38,7 @@ import app.jammes.plugado.ui.common.ScreenTitle
 import app.jammes.plugado.ui.common.SectionTitle
 import app.jammes.plugado.ui.common.bottomHairline
 import app.jammes.plugado.ui.common.formatDuration
+import app.jammes.plugado.ui.common.outputKindLabel
 import app.jammes.plugado.ui.theme.PlugadoIcons
 import app.jammes.plugado.ui.theme.PlugadoTheme
 import org.koin.compose.viewmodel.koinViewModel
@@ -84,7 +85,7 @@ fun DevicesScreen(
 @Composable
 private fun DeviceRow(device: DeviceTotal, onCountsChange: (DeviceTotal, Boolean) -> Unit) {
     val colors = PlugadoTheme.colors
-    val kind = stringResource(kindLabel(device.output.type))
+    val kind = stringResource(outputKindLabel(device.output.type))
     val detail = if (device.counts) {
         stringResource(R.string.device_total, kind, formatDuration(device.listened))
     } else {
@@ -117,14 +118,6 @@ private fun DeviceRow(device: DeviceTotal, onCountsChange: (DeviceTotal, Boolean
         }
         PlugadoSwitch(checked = device.counts)
     }
-}
-
-private fun kindLabel(type: OutputType): Int = when (type) {
-    OutputType.BLUETOOTH -> R.string.device_kind_bluetooth
-    OutputType.WIRED -> R.string.device_kind_wired
-    OutputType.USB -> R.string.device_kind_usb
-    OutputType.BLE -> R.string.device_kind_ble
-    OutputType.HEARING_AID -> R.string.device_kind_hearing_aid
 }
 
 @Composable

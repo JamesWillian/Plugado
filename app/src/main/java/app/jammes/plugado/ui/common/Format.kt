@@ -3,11 +3,16 @@ package app.jammes.plugado.ui.common
 import android.icu.text.DateIntervalFormat
 import android.icu.util.DateInterval
 import android.text.format.DateFormat
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import app.jammes.domain.model.Output
+import app.jammes.domain.model.OutputType
+import app.jammes.plugado.R
 import java.text.FieldPosition
 import java.text.NumberFormat
 import java.time.Duration
@@ -32,6 +37,19 @@ fun formatDuration(duration: Duration): String {
 fun formatDurationShort(duration: Duration): String {
     val minutes = duration.toMinutes()
     return if (minutes >= 60) String.format(Locale.ROOT, "%d h %02d", minutes / 60, minutes % 60) else "$minutes min"
+}
+
+/** O nome do fone. Quando o aparelho não informa um nome, mostra o tipo ("Com fio", "Bluetooth"). */
+@Composable
+fun deviceName(output: Output): String = output.name.ifBlank { stringResource(outputKindLabel(output.type)) }
+
+@StringRes
+fun outputKindLabel(type: OutputType): Int = when (type) {
+    OutputType.BLUETOOTH -> R.string.device_kind_bluetooth
+    OutputType.WIRED -> R.string.device_kind_wired
+    OutputType.USB -> R.string.device_kind_usb
+    OutputType.BLE -> R.string.device_kind_ble
+    OutputType.HEARING_AID -> R.string.device_kind_hearing_aid
 }
 
 /** "58%" no jeito de cada idioma ("58 %" em espanhol). */
