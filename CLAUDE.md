@@ -31,6 +31,7 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
 - [x] `data/` (fase 5): Room (`segments`, `devices`), `ListeningRepository` (é o `CommandSink`), recuperação dos trechos órfãos (regra no domínio, `OrphanRecovery.kt`), DataStore (`MonitorSettings`), `MonitorSwitch`, `BootReceiver` e a notificação "Hoje: X min no fone". Testes: 3 no domínio e 8 instrumentados no emulador (`./gradlew :app:connectedDebugAndroidTest`). No emulador (API 37): a notificação mostra "Hoje: 0 min no fone", reinstalar o app com o monitoramento ligado faz ele voltar sozinho (`MY_PACKAGE_REPLACED`), e o "Pausar" desliga e continua desligado depois de reinstalar. Falta ver o total subir no aparelho real, ouvindo música.
 - [x] UI (fase 6, 21/out): Hoje, Histórico (7 e 30 dias), Dispositivos, Ajustes, Privacidade e o primeiro uso, em Compose, em português, inglês e espanhol, com tema Claro/Escuro/Sistema. Conferido no emulador (API 37) com dados de exemplo; os prints estão em `docs/prints/`. Falta o James usar no celular dele.
 - [x] Sessão aberta na tela Hoje (27/out): um toque na sessão mostra o gráfico do volume, o pico, o tempo no pico e o fone (veja "Sessão aberta" mais abaixo). Conferido no emulador (API 37) com dados de exemplo, nos dois temas e nos 3 idiomas; o print é o `docs/prints/4-sessao-aberta.png`. Falta ver no celular do James, com sessões de verdade.
+- [x] Duração mínima da sessão nos Ajustes (27/out): sessões mais curtas que o mínimo (padrão 1 min) não aparecem nem contam, mas continuam no banco (veja "Duração mínima da sessão" mais abaixo). Testes: 5 instrumentados no `ListeningRepositoryTest` e 2 na JVM (`FormatTest`). Conferido no emulador (API 37) na largura do celular do James (375 dp), nos dois temas e nos 3 idiomas, com sessões curtas de exemplo; o print é o `docs/prints/5-duracao-minima.png`. Falta ver no celular do James.
 - [ ] Endurecimento e publicação na Play Store.
 
 ## Próximos passos
@@ -39,6 +40,7 @@ Princípio do produto: o app **não** sabe qual app está tocando nem qual mídi
    - `SegmentTrackerTest`, "pausa curta e volta com outro volume": toca em 0 s, pausa em 60 s, volta em 62 s com outro volume → `Close` em 60 + `Open` em 62, na mesma sessão.
    - `SnapshotRulesTest`, "SCO sozinho não conta pra mídia": só o SCO conectado, música tocando e mode normal → `output` null.
    - `ListeningStatsTest`, "tempo no pico soma os trechos separados": 60% por 10 min, 50% por 5 min e 60% de novo por 15 min → `peakPercent` 60 e `timeAtPeak` 25 min.
+   - `FormatTest` (JVM), "minutos e segundos juntos": `formatMinutesSeconds(Duration.ofSeconds(90))` → `"1 min 30 s"`.
 2. Investigar o vídeo do Facebook com som, que não contou (veja "Achados do uso"). Precisa de dados crus no log de debug: `isMusicActive`, `mode`, saídas e players ativos em cada gatilho, mesmo quando o snapshot não muda.
 3. Endurecimento e Play Store: página da política de privacidade (e preencher `PRIVACY_POLICY_URL`), textos e vídeo da declaração do FGS `specialUse`, Data safety, conferir que o app segue sem a permissão `INTERNET`, testes em outras marcas e no Android 17, troca de fuso (o `zone` do tracker é fixo desde a criação).
 
@@ -51,7 +53,7 @@ Os protótipos aprovados estão no canvas "Protótipos do Plugado" (https://clau
 - Tema: Claro, Escuro ou Sistema (escolha nos Ajustes; o padrão é Sistema).
 - Barra de baixo com 4 abas: Hoje, Histórico, Dispositivos e Ajustes ("Ajustes" e não "Configurações", porque cabe melhor em 4 abas; em inglês "Settings", em espanhol "Ajustes"). Os rótulos atuais em inglês no `AppDestinations` mudam.
 - O app é multi-idioma: português (Brasil), inglês e espanhol, mais "Padrão do sistema". Cada idioma aparece com o nome no próprio idioma (English, Español, Português (Brasil)).
-- Ajustes: Tema, Idioma, Monitorar o fone (interruptor), Bateria sem restrições (abre os ajustes do celular), Política de privacidade (tela própria com resumo e link pra política completa) e Excluir todos os dados (confirmação; apaga histórico e dispositivos, mantém as preferências).
+- Ajustes: Tema, Idioma, Monitorar o fone (interruptor), Bateria sem restrições (abre os ajustes do celular), Duração mínima (desde 27/out, veja "Duração mínima da sessão"), Política de privacidade (tela própria com resumo e link pra política completa) e Excluir todos os dados (confirmação; apaga histórico e dispositivos, mantém as preferências).
 - A tela de Privacidade afirma que o app "não usa a internet". Isso só continua verdade se o app seguir sem a permissão `INTERNET`; confira o manifest final antes de publicar.
 
 Como ficou no código (fase 6):
@@ -86,6 +88,17 @@ Como ficou no código (fase 6):
 - Ficaram de fora: "ajustes de volume" (trocado pelo dispositivo), dB e pausas (uma pausa de mais de 5 s já encerra a sessão). Ideias pra depois, mostradas só quando acontecerem: troca de fone na mesma sessão, marca de chamada e "começou ontem" (a sessão que passou da meia-noite aparece hoje começando às 00:00).
 - No canvas: "Hoje · sessão aberta" (dá pra tocar nas sessões no modo Play), "Hoje · sessão ao vivo aberta" e "Hoje · sessão aberta, claro". A lista do "Hoje" também ganhou a setinha e o subtítulo novo.
 
+### Duração mínima da sessão (decisões de 27/out)
+
+- Nos Ajustes, grupo Monitoramento, depois da Bateria: "Duração mínima", com o controle de arrastar na própria linha (o James escolheu isso em vez de um painel que sobe). Vai de 0 ("Sem mínimo") a 5 min, de 30 em 30 s (11 paradas). O padrão é 1 min. O valor fica à direita do título, muda enquanto arrasta e é gravado ao soltar. Subtítulo: "Sessões mais curtas não contam" ("Todas as sessões contam" no zero).
+- No protótipo aprovado o título era "Tempo mínimo da sessão". Virou "Duração mínima" porque, em 375 dp (a largura do celular do James), título e subtítulo quebravam em 4 linhas. O valor tem largura fixa (a do maior rótulo, medida no idioma e na fonte atuais), pro título não mudar de quebra enquanto arrasta.
+- Regra: uma sessão conta se o tempo dela nas saídas que contam, somando todos os dias, chegar no mínimo (igual ao mínimo já conta). A que passa da meia-noite conta pelo tempo inteiro, nos dois dias. Tempo em saída marcada como "não é fone" não ajuda a chegar no mínimo.
+- A sessão curta continua no banco: o filtro é só na leitura. Baixar o mínimo traz ela de volta. O "Excluir todos os dados" mantém o mínimo, porque é preferência.
+- Vale pra Hoje (lista, total, linha do dia, números e comparação com a média), Histórico, notificação e Dispositivos. Na tela Dispositivos, a sessão soma todas as saídas: somando só as que contam, mexer num interruptor mudaria quais sessões entram, e a lista mudaria de ordem.
+- Sessão ao vivo: só aparece quando o tempo gravado (até o último heartbeat, que vai pro banco a cada 30 s) chega no mínimo. Ou seja, até ~30 s depois de passar dele.
+- No código: o mínimo fica no DataStore `app` (`AppPreferences.minimumSession`, chave `minimum_session_seconds`). O `ListeningRepository` recebe ele como `Flow<Duration>` e refaz as consultas quando ele muda (`withMinimum`), então as telas e a notificação não mudaram. O filtro é SQL: `SESSION_REACHES_MINIMUM` no `SegmentDao` (parâmetro `:minMillis`), e o `DeviceDao` tem a variante que soma todas as saídas.
+- O canvas ainda não tem essa linha: ela foi aprovada pelo James direto na conversa.
+
 ## Arquitetura
 
 ```
@@ -99,7 +112,7 @@ Como ficou no código (fase 6):
   monitor/   ListeningMonitor, CommandSink, MonitorListener, MonitorService,
              MonitorNotification, MonitorSwitch, BootReceiver                [pronto]
   data/      db/ (SegmentEntity, DeviceEntity, DAOs, Converters, AppDatabase),
-             prefs/MonitorSettings, ListeningRepository                       [pronto]
+             prefs/ (MonitorSettings, AppPreferences), ListeningRepository     [pronto]
   ui/        PlugadoApp (raiz e 4 abas), AppViewModel, theme/ (cores, Inter,
              ícones), common/ (componentes, formatos, atalhos do sistema),
              today/, history/, devices/, settings/, privacy/, onboarding/    [pronto]
@@ -167,7 +180,7 @@ As fontes (`TriggerSource`, um `callbackFlow` cada) emitem só **gatilhos** (`Un
 - Comandos → SQL: `Open` = insert (com `lastSeenAt = startedAt`) + insert-or-ignore em `devices`, `Close` = update de `endedAt`, `Heartbeat` = update de `lastSeenAt`, `DiscardSession` = delete por `sessionId`.
 - Heartbeat gravado no máximo a cada 30 s (o tracker manda um a cada tick de 5 s). Decidido em 20/out.
 - Ao iniciar, o serviço roda o `recoverOrphans()` antes do monitor: cada trecho aberto vira `OrphanSegment` (direto da query) e o `recover()` do domínio decide entre fechar no `lastSeenAt` ou descartar a sessão (< 10 s, contando desde o primeiro trecho dela).
-- Total do dia: `SUM(COALESCE(endedAt, lastSeenAt) - startedAt)`, exposto como `Flow`. O volume médio fica pra fase de UI, calculado no `:domain/stats` (a média energética precisa de log/pow, que o SQLite do Android não garante).
+- Total do dia: `SUM(COALESCE(endedAt, lastSeenAt) - startedAt)`, exposto como `Flow`. Desde 27/out, só das sessões que chegam na duração mínima. O volume médio fica pra fase de UI, calculado no `:domain/stats` (a média energética precisa de log/pow, que o SQLite do Android não garante).
 - O liga/desliga fica no DataStore (`MonitorSettings`). O `MonitorSwitch` grava e liga/desliga o serviço. O "Pausar" da notificação também grava "desligado". O `BootReceiver` (não exportado: o sistema entrega mesmo assim) religa no `BOOT_COMPLETED` e no `MY_PACKAGE_REPLACED` se estiver ligado.
 - A notificação mostra "Hoje: X min no fone". Ela relê a data a cada minuto, pra virar o dia na meia-noite. Sem a permissão de notificação, ela não é atualizada.
 
@@ -247,11 +260,13 @@ Outros achados:
 - `./gradlew :domain:test`: testes do domínio.
 - `./gradlew :app:testDebugUnitTest`: testes do `:app` na JVM (regras, agregador, monitor e o estado das telas).
 - `ANDROID_SERIAL=emulator-5554 ./gradlew :app:connectedDebugAndroidTest`: testes do banco **só no emulador** (veja o aviso em Configuração).
+- Jeito mais seguro, que mira só o emulador e não desinstala o app (os dados de exemplo ficam): `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest`, `adb -s emulator-5554 install -r app/build/outputs/apk/debug/app-debug.apk`, `adb -s emulator-5554 install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk` e `adb -s emulator-5554 shell am instrument -w -e class app.jammes.plugado.data.ListeningRepositoryTest app.jammes.plugado.test/androidx.test.runner.AndroidJUnitRunner`.
+- `adb -s emulator-5554 shell wm size 1220x2712` e `wm density 520`: deixa o emulador com a tela do celular do James (375 dp). Volte com `wm size reset` e `wm density reset`.
 - `adb -s emulator-5554 shell cmd locale set-app-locales app.jammes.plugado --locales pt-BR`: muda o idioma do app sem passar pela tela (no Android 13+). O `pm clear` apaga essa escolha.
 - `./gradlew :app:installDebug`: instala no aparelho.
 - `adb logcat -s Plugado`: log do monitor (build de debug).
 - O `adb` fica em `~/Library/Android/sdk/platform-tools/adb`, que pode não estar no PATH do terminal.
-- Dados de exemplo no emulador (pros prints), **nunca no celular do James**: com o app parado (`am force-stop`), copie o `databases/plugado.db` e o `-wal` com `adb exec-out run-as app.jammes.plugado cat <arquivo>`, insira os trechos no SQLite, rode `PRAGMA wal_checkpoint(TRUNCATE)` e devolva o `.db` por `/data/local/tmp` com `run-as app.jammes.plugado cp`, apagando o `-wal` e o `-shm` do aparelho.
+- Dados de exemplo no emulador (pros prints), **nunca no celular do James**: com o app parado (`am force-stop`), copie o `databases/plugado.db` e o `-wal` com `adb exec-out run-as app.jammes.plugado cat <arquivo>`, insira os trechos no SQLite, rode `PRAGMA wal_checkpoint(TRUNCATE)` e devolva o `.db` por `/data/local/tmp` com `run-as app.jammes.plugado cp`, apagando o `-wal` e o `-shm` do aparelho. Logo depois de um `install`, o `BootReceiver` (`MY_PACKAGE_REPLACED`) pode religar o app mesmo depois do `force-stop`: confira que `adb shell pidof app.jammes.plugado` volta vazio antes de trocar o banco. Se o app estiver aberto na troca, ele continua mostrando o banco antigo (achado de 27/out).
 - `adb shell cmd audio set-volume 3 <n>`: muda o volume de mídia, pra testar a fonte de volume. O `cmd media_session volume --set` e a tecla de volume sem mídia tocando **não** mudam o volume de mídia no emulador.
 
 ## Configuração

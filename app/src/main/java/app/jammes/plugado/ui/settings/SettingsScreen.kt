@@ -1,5 +1,6 @@
 package app.jammes.plugado.ui.settings
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,19 +15,25 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -34,10 +41,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -54,11 +71,15 @@ import app.jammes.plugado.ui.common.ScreenTitle
 import app.jammes.plugado.ui.common.SectionLabel
 import app.jammes.plugado.ui.common.batteryUnrestricted
 import app.jammes.plugado.ui.common.bottomHairline
+import app.jammes.plugado.ui.common.formatMinutesSeconds
 import app.jammes.plugado.ui.common.openAppSettings
 import app.jammes.plugado.ui.common.rememberOnResume
 import app.jammes.plugado.ui.common.rememberTurnOnMonitoring
 import app.jammes.plugado.ui.theme.PlugadoIcons
 import app.jammes.plugado.ui.theme.PlugadoTheme
+import app.jammes.plugado.ui.theme.TabularNumbers
+import java.time.Duration
+import kotlin.math.roundToLong
 import org.koin.compose.viewmodel.koinViewModel
 
 private enum class Sheet { THEME, LANGUAGE, DELETE }
@@ -67,6 +88,7 @@ private enum class Sheet { THEME, LANGUAGE, DELETE }
 fun SettingsRoute(contentPadding: PaddingValues, onOpenPrivacy: () -> Unit, viewModel: SettingsViewModel = koinViewModel()) {
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val monitoring by viewModel.monitoring.collectAsStateWithLifecycle()
+    val minimumSession by viewModel.minimumSession.collectAsStateWithLifecycle()
     val turnOn = rememberTurnOnMonitoring { viewModel.setMonitoring(true) }
     val snackbar = remember { SnackbarHostState() }
     val deletedMessage = stringResource(R.string.delete_done)
@@ -76,9 +98,11 @@ fun SettingsRoute(contentPadding: PaddingValues, onOpenPrivacy: () -> Unit, view
         SettingsScreen(
             theme = theme,
             monitoring = monitoring,
+            minimumSession = minimumSession,
             contentPadding = contentPadding,
             onTheme = viewModel::setTheme,
             onMonitoring = { on -> if (on) turnOn() else viewModel.setMonitoring(false) },
+            onMinimumSession = viewModel::setMinimumSession,
             onOpenPrivacy = onOpenPrivacy,
             onDeleteAll = viewModel::deleteAll,
         )
@@ -92,9 +116,11 @@ fun SettingsRoute(contentPadding: PaddingValues, onOpenPrivacy: () -> Unit, view
 fun SettingsScreen(
     theme: ThemeChoice,
     monitoring: Boolean,
+    minimumSession: Duration,
     contentPadding: PaddingValues,
     onTheme: (ThemeChoice) -> Unit,
     onMonitoring: (Boolean) -> Unit,
+    onMinimumSession: (Duration) -> Unit,
     onOpenPrivacy: () -> Unit,
     onDeleteAll: () -> Unit,
 ) {
@@ -153,6 +179,7 @@ fun SettingsScreen(
             )
             Icon(PlugadoIcons.External, contentDescription = null, modifier = Modifier.size(20.dp), tint = colors.subtle)
         }
+        MinimumSessionRow(minimumSession, onMinimumSession)
 
         Group(stringResource(R.string.settings_privacy_data))
         ValueRow(PlugadoIcons.Shield, stringResource(R.string.settings_privacy_policy), value = null, onClick = onOpenPrivacy)
@@ -253,6 +280,97 @@ private fun TwoLines(title: String, subtitle: String, modifier: Modifier = Modif
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium, color = PlugadoTheme.colors.text)
         Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = PlugadoTheme.colors.muted)
+    }
+}
+
+/** As paradas do controle do tempo mínimo: de 0 (sem mínimo) a 5 min, de 30 em 30 s. */
+private val MinimumSessionStops: List<Duration> = (0..10).map { Duration.ofSeconds(it * 30L) }
+
+/**
+ * O tempo mínimo da sessão, com o controle de arrastar na própria linha. O valor à direita muda
+ * enquanto arrasta; a preferência só é gravada ao soltar.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MinimumSessionRow(value: Duration, onChange: (Duration) -> Unit) {
+    val colors = PlugadoTheme.colors
+    var seconds by remember(value) { mutableFloatStateOf(value.seconds.toFloat()) }
+    val shown = Duration.ofSeconds(seconds.roundToLong())
+    val title = stringResource(R.string.settings_minimum_session)
+    val label = minimumLabel(shown)
+    val labelStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontFeatureSettings = TabularNumbers)
+    Column(Modifier.fillMaxWidth().bottomHairline(colors.line).padding(top = 14.dp, bottom = 2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            IconBadge(PlugadoIcons.Clock)
+            // O valor fica na linha do título; o subtítulo embaixo usa a largura toda
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(title, Modifier.weight(1f).alignByBaseline(), style = MaterialTheme.typography.titleMedium, color = colors.text)
+                    // Largura fixa (a do maior rótulo): assim o título não muda de quebra enquanto arrasta
+                    Text(
+                        label,
+                        Modifier.width(widestMinimumLabel(labelStyle)).alignByBaseline(),
+                        style = labelStyle,
+                        color = colors.muted,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                    )
+                }
+                Text(
+                    stringResource(if (shown.isZero) R.string.settings_minimum_session_off else R.string.settings_minimum_session_on),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.muted,
+                )
+            }
+        }
+        Slider(
+            value = seconds,
+            onValueChange = { seconds = it },
+            onValueChangeFinished = { onChange(Duration.ofSeconds(seconds.roundToLong())) },
+            // Começa na coluna do texto, depois do ícone
+            modifier = Modifier.padding(start = 56.dp).semantics {
+                contentDescription = title
+                stateDescription = label
+            },
+            valueRange = 0f..MinimumSessionStops.last().seconds.toFloat(),
+            steps = MinimumSessionStops.size - 2,
+            thumb = { Box(Modifier.size(20.dp).background(colors.text, CircleShape)) },
+            track = { MinimumSessionTrack(it) },
+        )
+    }
+}
+
+/** A trilha do controle: fina, preenchida até o botão, com um ponto em cada parada. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MinimumSessionTrack(state: SliderState) {
+    val colors = PlugadoTheme.colors
+    Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+        val y = size.height / 2
+        val filled = size.width * state.coercedValueAsFraction
+        drawLine(colors.chip, Offset(0f, y), Offset(size.width, y), strokeWidth = size.height, cap = StrokeCap.Round)
+        drawLine(colors.text, Offset(0f, y), Offset(filled, y), strokeWidth = size.height, cap = StrokeCap.Round)
+        val stops = state.steps + 1
+        for (i in 0..stops) {
+            val x = size.width * i / stops
+            drawCircle(if (x <= filled) colors.onInverse else colors.subtle, radius = 1.dp.toPx(), center = Offset(x, y))
+        }
+    }
+}
+
+/** "Sem mínimo", "30 s", "1 min 30 s". */
+@Composable
+private fun minimumLabel(value: Duration): String =
+    if (value.isZero) stringResource(R.string.settings_minimum_session_none) else formatMinutesSeconds(value)
+
+/** A largura do maior rótulo da escala, no idioma e no tamanho de fonte atuais. */
+@Composable
+private fun widestMinimumLabel(style: TextStyle): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labels = MinimumSessionStops.map { minimumLabel(it) }
+    return remember(labels, style, density) {
+        with(density) { labels.maxOf { measurer.measure(it, style).size.width }.toDp() }
     }
 }
 

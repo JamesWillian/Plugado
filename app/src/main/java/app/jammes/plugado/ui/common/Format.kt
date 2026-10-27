@@ -33,6 +33,17 @@ fun formatDuration(duration: Duration): String {
     return if (minutes >= 60) String.format(Locale.ROOT, "%d h %02d min", minutes / 60, minutes % 60) else "$minutes min"
 }
 
+/** Pra tempos curtos, com os segundos: "30 s", "2 min", "1 min 30 s". */
+fun formatMinutesSeconds(duration: Duration): String {
+    val minutes = duration.toMinutes()
+    val seconds = duration.seconds % 60
+    return when {
+        minutes == 0L -> "$seconds s"
+        seconds == 0L -> "$minutes min"
+        else -> "$minutes min $seconds s"
+    }
+}
+
 /** A versão curta, pros rótulos do gráfico: "2 h 14", "48 min". */
 fun formatDurationShort(duration: Duration): String {
     val minutes = duration.toMinutes()

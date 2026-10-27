@@ -12,18 +12,34 @@ import app.jammes.plugado.data.db.toEntity
 import app.jammes.plugado.monitor.CommandSink
 import java.time.Duration
 import java.time.LocalDate
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /** Grava os comandos do tracker no Room e expõe o que a notificação e a UI leem. */
 class ListeningRepository(
     db: AppDatabase,
+    /**
+     * Sessões mais curtas que isso ficam no banco, mas não contam em nada que sai daqui
+     * (o tempo mínimo dos Ajustes). Quando ele muda, as consultas abertas se refazem.
+     */
+    minimumSession: Flow<Duration> = flowOf(Duration.ZERO),
     /** Folga entre heartbeats gravados: o tracker manda um a cada tick, o banco não precisa de todos. */
     private val heartbeatEvery: Duration = Duration.ofSeconds(30),
 ) : CommandSink {
 
     private val segments = db.segments()
     private val devices = db.devices()
+
+    // O mínimo fica no mesmo DataStore do tema: sem o distinct, trocar o tema refaria as consultas.
+    private val minimumMillis = minimumSession.map { it.toMillis() }.distinctUntilChanged()
+
+    /** Roda a consulta com o mínimo atual e de novo a cada mudança dele. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun <T> withMinimum(query: (minMillis: Long) -> Flow<T>): Flow<T> = minimumMillis.flatMapLatest(query)
 
     // O último heartbeat gravado. O tracker só tem um trecho aberto por vez, então basta um.
     private var lastHeartbeat: TrackerCommand.Heartbeat? = null
@@ -57,11 +73,11 @@ class ListeningRepository(
 
     /** Tempo ouvido no dia, atualizado a cada gravação. */
     fun listenedOn(day: LocalDate): Flow<Duration> =
-        segments.listenedMillis(day).map(Duration::ofMillis)
+        withMinimum { segments.listenedMillis(day, it) }.map(Duration::ofMillis)
 
     /** Os trechos que contam no dia. O fim de um trecho aberto é o último heartbeat gravado. */
     fun countedSpansOn(day: LocalDate): Flow<List<Span>> =
-        segments.countedSegmentsOn(day).map { list ->
+        withMinimum { segments.countedSegmentsOn(day, it) }.map { list ->
             list.map {
                 Span(
                     sessionId = it.sessionId,
@@ -76,7 +92,7 @@ class ListeningRepository(
 
     /** Os dias com escuta entre [from] e [to] (os dias sem escuta não vêm: veja `fillDays`). */
     fun dailyTotals(from: LocalDate, to: LocalDate): Flow<List<DayTotal>> =
-        segments.dailyTotals(from, to).map { rows ->
+        withMinimum { segments.dailyTotals(from, to, it) }.map { rows ->
             rows.map { row ->
                 DayTotal(
                     day = row.day,
@@ -91,7 +107,7 @@ class ListeningRepository(
 
     /** Todas as saídas que já tocaram, com o tempo de cada uma. */
     val devicesWithTotals: Flow<List<DeviceTotal>> =
-        devices.devicesWithTotals().map { rows ->
+        withMinimum { devices.devicesWithTotals(it) }.map { rows ->
             rows.map { DeviceTotal(Output(it.type, it.name), it.isHeadphone, Duration.ofMillis(it.listenedMillis)) }
         }
 

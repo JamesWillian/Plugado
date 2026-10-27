@@ -8,6 +8,19 @@ import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * O trecho `s` é de uma sessão que chega no tempo mínimo (`:minMillis`). A sessão soma os trechos
+ * dela em todos os dias (a que passa da meia-noite conta pelo tempo inteiro), só nas saídas que
+ * contam. A sessão curta continua no banco e volta a contar se o mínimo baixar.
+ */
+private const val SESSION_REACHES_MINIMUM = """
+    (SELECT SUM(COALESCE(c.endedAt, c.lastSeenAt) - c.startedAt) FROM segments c
+     WHERE c.sessionId = s.sessionId AND NOT EXISTS (
+         SELECT 1 FROM devices d
+         WHERE d.type = c.outputType AND d.name = c.outputName AND d.isHeadphone = 0
+     )) >= :minMillis
+"""
+
 @Dao
 interface SegmentDao {
 
@@ -36,7 +49,7 @@ interface SegmentDao {
 
     /**
      * Milissegundos ouvidos no dia. O trecho aberto conta até o último heartbeat.
-     * Saídas marcadas como "não é fone" não contam.
+     * Saídas marcadas como "não é fone" e sessões mais curtas que [minMillis] não contam.
      */
     @Query(
         """
@@ -45,29 +58,35 @@ interface SegmentDao {
         WHERE s.day = :day AND NOT EXISTS (
             SELECT 1 FROM devices d
             WHERE d.type = s.outputType AND d.name = s.outputName AND d.isHeadphone = 0
-        )
+        ) AND $SESSION_REACHES_MINIMUM
         """,
     )
-    fun listenedMillis(day: LocalDate): Flow<Long>
+    fun listenedMillis(day: LocalDate, minMillis: Long): Flow<Long>
 
     /** Os trechos do dia, em ordem. */
     @Query("SELECT * FROM segments WHERE day = :day ORDER BY startedAt")
     fun segmentsOn(day: LocalDate): Flow<List<SegmentEntity>>
 
-    /** Os trechos do dia que contam (sem as saídas marcadas como "não é fone"), em ordem. */
+    /**
+     * Os trechos do dia que contam (sem as saídas marcadas como "não é fone" e sem as sessões
+     * mais curtas que [minMillis]), em ordem.
+     */
     @Query(
         """
         SELECT s.* FROM segments s
         WHERE s.day = :day AND NOT EXISTS (
             SELECT 1 FROM devices d
             WHERE d.type = s.outputType AND d.name = s.outputName AND d.isHeadphone = 0
-        )
+        ) AND $SESSION_REACHES_MINIMUM
         ORDER BY s.startedAt
         """,
     )
-    fun countedSegmentsOn(day: LocalDate): Flow<List<SegmentEntity>>
+    fun countedSegmentsOn(day: LocalDate, minMillis: Long): Flow<List<SegmentEntity>>
 
-    /** Tempo ouvido e volume de cada dia com escuta entre [from] e [to], sem as saídas que não contam. */
+    /**
+     * Tempo ouvido e volume de cada dia com escuta entre [from] e [to], sem as saídas que não
+     * contam e sem as sessões mais curtas que [minMillis].
+     */
     @Query(
         """
         SELECT s.day AS day,
@@ -78,11 +97,11 @@ interface SegmentDao {
         WHERE s.day BETWEEN :from AND :to AND NOT EXISTS (
             SELECT 1 FROM devices d
             WHERE d.type = s.outputType AND d.name = s.outputName AND d.isHeadphone = 0
-        )
+        ) AND $SESSION_REACHES_MINIMUM
         GROUP BY s.day
         """,
     )
-    fun dailyTotals(from: LocalDate, to: LocalDate): Flow<List<DayTotalRow>>
+    fun dailyTotals(from: LocalDate, to: LocalDate, minMillis: Long): Flow<List<DayTotalRow>>
 
     /** O primeiro dia com algum registro. Antes dele, o app ainda não estava medindo. */
     @Query("SELECT MIN(day) FROM segments")

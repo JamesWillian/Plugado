@@ -7,6 +7,7 @@ import app.jammes.plugado.data.prefs.AppPreferences
 import app.jammes.plugado.data.prefs.MonitorSettings
 import app.jammes.plugado.data.prefs.ThemeChoice
 import app.jammes.plugado.monitor.MonitorSwitch
+import java.time.Duration
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +29,9 @@ class SettingsViewModel(
     val monitoring: StateFlow<Boolean> =
         settings.enabled.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val minimumSession: StateFlow<Duration> = prefs.minimumSession
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences.DEFAULT_MINIMUM_SESSION)
+
     private val deletedEvents = Channel<Unit>(Channel.CONFLATED)
 
     /** Avisa a tela quando os dados terminaram de ser apagados (pra mostrar a confirmação). */
@@ -39,6 +43,10 @@ class SettingsViewModel(
 
     fun setMonitoring(on: Boolean) {
         viewModelScope.launch { if (on) switch.turnOn() else switch.turnOff() }
+    }
+
+    fun setMinimumSession(value: Duration) {
+        viewModelScope.launch { prefs.setMinimumSession(value) }
     }
 
     fun deleteAll() {

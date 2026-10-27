@@ -23,19 +23,24 @@ interface DeviceDao {
     /**
      * Cada saída com o tempo total dela, da mais usada pra menos usada. A ordem não depende de
      * contar ou não: assim a linha não pula de lugar quando o usuário mexe no interruptor.
+     * Sessões mais curtas que [minMillis] ficam de fora. Pelo mesmo motivo, aqui a sessão soma
+     * todas as saídas: somando só as que contam, o interruptor mudaria quais sessões entram.
      */
     @Query(
         """
         SELECT d.type AS type, d.name AS name, d.isHeadphone AS isHeadphone,
                COALESCE((
                    SELECT SUM(COALESCE(s.endedAt, s.lastSeenAt) - s.startedAt) FROM segments s
-                   WHERE s.outputType = d.type AND s.outputName = d.name
+                   WHERE s.outputType = d.type AND s.outputName = d.name AND (
+                       SELECT SUM(COALESCE(c.endedAt, c.lastSeenAt) - c.startedAt) FROM segments c
+                       WHERE c.sessionId = s.sessionId
+                   ) >= :minMillis
                ), 0) AS listenedMillis
         FROM devices d
         ORDER BY listenedMillis DESC, d.name
         """,
     )
-    fun devicesWithTotals(): Flow<List<DeviceTotalRow>>
+    fun devicesWithTotals(minMillis: Long): Flow<List<DeviceTotalRow>>
 
     @Query("DELETE FROM devices")
     suspend fun deleteAll()

@@ -88,6 +88,10 @@
     <string name="settings_battery">Bateria sem restrições</string>
     <string name="settings_battery_allowed">Liberada</string>
     <string name="settings_battery_not_allowed">Não liberada</string>
+    <string name="settings_minimum_session">Duração mínima</string>
+    <string name="settings_minimum_session_on">Sessões mais curtas não contam</string>
+    <string name="settings_minimum_session_off">Todas as sessões contam</string>
+    <string name="settings_minimum_session_none">Sem mínimo</string>
     <string name="settings_privacy_data">Privacidade e dados</string>
     <string name="settings_privacy_policy">Política de privacidade</string>
     <string name="settings_delete_all">Excluir todos os dados</string>

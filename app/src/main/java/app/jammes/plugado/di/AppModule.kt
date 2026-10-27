@@ -51,7 +51,7 @@ val appModule = module {
     }
 
     single { Room.databaseBuilder(androidContext(), AppDatabase::class.java, "plugado.db").build() }
-    single { ListeningRepository(get()) }
+    single { ListeningRepository(get(), minimumSession = get<AppPreferences>().minimumSession) }
     single<CommandSink> { get<ListeningRepository>() }
 
     single {

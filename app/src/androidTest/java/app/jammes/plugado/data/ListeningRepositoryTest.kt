@@ -10,12 +10,14 @@ import app.jammes.domain.model.Segment
 import app.jammes.domain.model.Volume
 import app.jammes.domain.tracker.TrackerCommand
 import app.jammes.plugado.data.db.AppDatabase
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -33,6 +35,10 @@ class ListeningRepositoryTest {
 
     private val day = LocalDate.of(2026, 10, 20)
     private val fone = Output(OutputType.BLUETOOTH, "ZMI PurPods Pro")
+    private val speaker = Output(OutputType.BLUETOOTH, "JBL Flip 5")
+
+    /** O tempo mínimo dos Ajustes. Começa em zero: os testes antigos não dependem dele. */
+    private val minimum = MutableStateFlow(Duration.ZERO)
 
     private lateinit var db: AppDatabase
     private lateinit var repository: ListeningRepository
@@ -43,7 +49,7 @@ class ListeningRepositoryTest {
             ApplicationProvider.getApplicationContext(),
             AppDatabase::class.java,
         ).build()
-        repository = ListeningRepository(db)
+        repository = ListeningRepository(db, minimumSession = minimum)
     }
 
     @AfterTest
@@ -55,6 +61,12 @@ class ListeningRepositoryTest {
         Segment(id, "s1", at(startedAt), day, AudioKind.MEDIA, output, Volume(12, 30, volumeDb))
 
     private suspend fun open(segment: Segment) = repository.execute(TrackerCommand.Open(segment))
+
+    /** Grava um trecho já fechado. O dia é o do início (os testes usam UTC). */
+    private suspend fun listen(session: String, id: String, from: Instant, to: Instant, output: Output = fone) {
+        open(Segment(id, session, from, from.atZone(ZoneOffset.UTC).toLocalDate(), AudioKind.MEDIA, output, Volume(12, 30, -34f)))
+        repository.execute(TrackerCommand.Close(id, to))
+    }
 
     private suspend fun listened() = repository.listenedOn(day).first()
 
@@ -94,7 +106,6 @@ class ListeningRepositoryTest {
 
     @Test
     fun `saída marcada como não é fone para de contar inclusive no passado`() = runTest {
-        val speaker = Output(OutputType.BLUETOOTH, "JBL Flip 5")
         open(segment("t1", "20:00:00", output = speaker))
         repository.execute(TrackerCommand.Close("t1", at("20:10:00")))
 
@@ -128,7 +139,6 @@ class ListeningRepositoryTest {
 
     @Test
     fun `trechos do dia vêm sem as saídas que não contam`() = runTest {
-        val speaker = Output(OutputType.BLUETOOTH, "JBL Flip 5")
         open(segment("t1", "20:00:00"))
         repository.execute(TrackerCommand.Close("t1", at("20:10:00")))
         open(segment("t2", "21:00:00", output = speaker))
@@ -183,5 +193,63 @@ class ListeningRepositoryTest {
         open(segment("t1", "20:00:00", volumeDb = Float.NaN))
 
         assertNull(db.segments().segmentsOn(day).first().single().volumeDb)
+    }
+
+    @Test
+    fun `sessão mais curta que o mínimo não conta mas continua no banco`() = runTest {
+        listen("curta", "t1", at("20:00:00"), at("20:00:40"))
+        listen("longa", "t2", at("21:00:00"), at("21:10:00"))
+
+        minimum.value = Duration.ofMinutes(1)
+
+        assertEquals(Duration.ofMinutes(10), listened())
+        assertEquals(listOf("longa"), repository.countedSpansOn(day).first().map { it.sessionId })
+        assertEquals(Duration.ofMinutes(10), repository.dailyTotals(day, day).first().single().listened)
+        assertEquals(2, db.segments().segmentsOn(day).first().size) // a curta só ficou escondida
+    }
+
+    @Test
+    fun `baixar o mínimo traz a sessão escondida de volta`() = runTest {
+        listen("s1", "t1", at("20:00:00"), at("20:01:30"))
+        minimum.value = Duration.ofMinutes(2)
+        assertEquals(Duration.ZERO, listened())
+
+        minimum.value = Duration.ofMinutes(1)
+
+        assertEquals(Duration.ofSeconds(90), listened())
+    }
+
+    @Test
+    fun `sessão que passa da meia-noite conta pelo tempo inteiro`() = runTest {
+        // 2 min antes da meia-noite e 30 min depois: a sessão tem 32 min, então os 2 min contam
+        listen("s1", "t1", at("23:58:00"), Instant.parse("2026-10-21T00:00:00Z"))
+        listen("s1", "t2", Instant.parse("2026-10-21T00:00:00Z"), Instant.parse("2026-10-21T00:30:00Z"))
+
+        minimum.value = Duration.ofMinutes(5)
+
+        assertEquals(Duration.ofMinutes(2), listened())
+        assertEquals(Duration.ofMinutes(30), repository.listenedOn(day.plusDays(1)).first())
+    }
+
+    @Test
+    fun `tempo em saída que não é fone não ajuda a sessão a chegar no mínimo`() = runTest {
+        // 40 s no fone e depois 10 min na caixa de som, na mesma sessão
+        listen("s1", "t1", at("20:00:00"), at("20:00:40"))
+        listen("s1", "t2", at("20:00:40"), at("20:10:40"), output = speaker)
+        db.devices().setHeadphone(speaker.type, speaker.name, isHeadphone = false)
+
+        minimum.value = Duration.ofMinutes(1)
+
+        assertEquals(Duration.ZERO, listened())
+    }
+
+    @Test
+    fun `total do dispositivo deixa de fora a sessão curta`() = runTest {
+        listen("curta", "t1", at("20:00:00"), at("20:00:40"))
+        listen("longa", "t2", at("21:00:00"), at("21:25:00"))
+
+        minimum.value = Duration.ofMinutes(1)
+
+        assertEquals(Duration.ofMinutes(25), repository.devicesWithTotals.first().single().listened)
     }
 }
